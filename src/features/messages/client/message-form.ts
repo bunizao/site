@@ -306,6 +306,7 @@ export function initMessageForm(root: HTMLElement): void {
       if (!response.ok) {
         // A used token cannot be reused, whatever the refusal was.
         releaseTurnstileToken(ACTION);
+        let refused = false;
         if (response.status === 429) {
           showError(t.errorRateLimited);
         } else if (response.status === 400 || response.status === 503) {
@@ -316,12 +317,15 @@ export function initMessageForm(root: HTMLElement): void {
             dwellToken = '';
             dwellTokenMintedAt = 0;
           }
-          const refused = detail?.error === 'turnstile_failed';
+          refused = detail?.error === 'turnstile_failed';
           showError(refused ? t.errorTurnstile : t.errorGeneric);
           if (refused && siteKey && !isResend) void challengeAndResend();
         } else {
           showError(t.errorGeneric);
         }
+        // Any other refusal: settle the next token now, so trying again does
+        // not wait on a fresh solve. A Turnstile refusal has its checkbox.
+        if (siteKey && !refused) warmTurnstileToken(siteKey, ACTION);
         setBusy(false);
         return;
       }

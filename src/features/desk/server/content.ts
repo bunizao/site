@@ -1,12 +1,20 @@
 // What the desk shows at request time: the newest few moods and the channel
-// they come from, and the newest posts for the contents page. Everything else
-// on the desk is static data from site.ts.
+// they come from, the newest posts for the contents page and what the blog
+// adds up to, and the week on GitHub (server/github.ts). Everything else on
+// the desk is static data from site.ts.
+import type { BlogStats } from '@bunizao/contracts/content';
+import type { ListeningStats } from '@bunizao/contracts/listening';
+import type { SubscriberCounts } from '@bunizao/contracts/notify';
 import type { MoodFeedItem } from '@/features/mood/server/contracts';
 import { loadMoodFeed } from '@/features/mood/server/api-client';
 import type { MoodServerContext } from '@/features/mood/server/channel-service';
 import { buildArchiveSrcSet } from '@/features/mood/shared/image-srcset';
+import { loadGitHubWeek, type DeskGitHubWeek } from '@/features/desk/server/github';
+import { isE2ESiteFixtureEnabled } from '@/lib/e2e';
+import { writingLedger } from '@/features/posts/ledger';
 import { getListedPosts } from '@/features/posts/server/content';
 import { postPath } from '@/features/posts/format';
+import { proxyApiRequest } from '@/lib/http/api-service-proxy';
 
 export interface DeskMood {
   id: string;
@@ -15,8 +23,9 @@ export interface DeskMood {
   /** "zh" when the text is Chinese, so assistive tech picks the right voice. */
   lang?: string;
   datetime: string;
-  /** "1 Oct", in Melbourne time, where every one of these was posted. */
-  date: string;
+  /** "21:51", in Melbourne time, where every one of these was posted; the
+      page puts it in the reader's own time (client/moods.ts). */
+  time: string;
   thumb?: { src: string; srcset?: string };
   /** The two biggest, as "❤️ 3". */
   reactions: string[];
@@ -28,6 +37,18 @@ export interface DeskPost {
   lang?: string;
   /** "Sep 2026". */
   date: string;
+}
+
+export interface DeskWriting {
+  posts: number;
+  words: number;
+  /** The year of the first post. */
+  since: number;
+  /** Reads of every post since the counting began ("June 2026"). Nothing
+      before it was kept, so the figure never claims more than that. */
+  reads?: { count: number; since: string };
+  /** The post read the most. */
+  top?: { title: string; href: string; lang?: string };
 }
 
 export interface DeskChannel {
@@ -42,13 +63,18 @@ export interface DeskContent {
   channel: DeskChannel;
   posts: DeskPost[];
   postCount: number;
+  writing: DeskWriting | null;
+  github: DeskGitHubWeek | null;
+  subscribers: SubscriberCounts | null;
+  listening: ListeningStats | null;
 }
 
 const MOODS = 3;
 const POSTS = 5;
 
-const melbourneDay = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', day: 'numeric', month: 'short' });
+const melbourneTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false });
 const monthYear = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', month: 'short', year: 'numeric' });
+const longMonthYear = new Intl.DateTimeFormat('en-GB', { timeZone: 'Australia/Melbourne', month: 'long', year: 'numeric' });
 
 const format = (formatter: Intl.DateTimeFormat, iso: string) => {
   const date = new Date(iso);
@@ -73,7 +99,7 @@ const toMood = (item: MoodFeedItem): DeskMood => {
     text: item.previewText.trim(),
     lang: langOf(item.previewText),
     datetime: item.datetime,
-    date: format(melbourneDay, item.datetime),
+    time: format(melbourneTime, item.datetime),
     ...(thumb ? { thumb: { src: thumb.src, srcset: thumb.srcset } } : {}),
     reactions: [...item.reactions]
       .sort((a, b) => Number(b.count) - Number(a.count))
@@ -82,11 +108,72 @@ const toMood = (item: MoodFeedItem): DeskMood => {
   };
 };
 
+type ListedPost = Awaited<ReturnType<typeof getListedPosts>>[number];
+
+export const summariseDeskWriting = (posts: ListedPost[], stats: BlogStats | null): DeskWriting | null => {
+  const ledger = writingLedger(posts);
+  if (!ledger) return null;
+  const since = stats?.since ? format(longMonthYear, stats.since) : '';
+  const counts = new Map(stats?.posts.map((post) => [post.slug, post.reads]));
+  const top = posts.filter((post) => (counts.get(post.slug) ?? 0) > 0)
+    .sort((a, b) => (counts.get(b.slug) ?? 0) - (counts.get(a.slug) ?? 0))[0];
+  return {
+    posts: ledger.posts,
+    words: ledger.words,
+    since: ledger.since,
+    ...(since && stats ? { reads: { count: stats.totals.reads, since } } : {}),
+    ...(since && top ? { top: { title: top.title, href: postPath(top.slug), lang: langOf(top.title) } } : {}),
+  };
+};
+
+async function loadDeskSnapshot(context: MoodServerContext, path: string): Promise<unknown> {
+  if (isE2ESiteFixtureEnabled(context.locals)) return null;
+  try {
+    const url = new URL(path, context.request.url);
+    const response = await proxyApiRequest(new Request(url), context.locals);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+const isCount = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+const isTimestamp = (value: unknown): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value));
+
+export async function loadDeskBlogStats(context: MoodServerContext): Promise<BlogStats | null> {
+  const stats = await loadDeskSnapshot(context, '/api/v2/blog/stats') as BlogStats | null;
+  if (!stats || !Array.isArray(stats.posts) || !isCount(stats.totals?.reads)
+    || (stats.since !== null && typeof stats.since !== 'string')
+    || stats.posts.some((post) => !post || typeof post.slug !== 'string' || !isCount(post.reads))) return null;
+  return stats;
+}
+
+export async function loadDeskSubscriberCounts(context: MoodServerContext): Promise<SubscriberCounts | null> {
+  const stats = await loadDeskSnapshot(context, '/api/v2/notify/stats') as SubscriberCounts | null;
+  if (!stats || !isTimestamp(stats.generatedAt) || !isCount(stats.channels?.blog) || !isCount(stats.channels?.mood)) return null;
+  return stats;
+}
+
+export async function loadDeskListeningStats(context: MoodServerContext): Promise<ListeningStats | null> {
+  const stats = await loadDeskSnapshot(context, '/api/v2/listening/stats') as ListeningStats | null;
+  if (!stats || !isTimestamp(stats.generatedAt) || !isTimestamp(stats.window?.from)
+    || !isTimestamp(stats.window?.to) || !isCount(stats.totals?.plays)
+    || Date.parse(stats.window.from) >= Date.parse(stats.window.to)
+    || (stats.topArtist !== null && (!stats.topArtist || typeof stats.topArtist.name !== 'string'
+      || !stats.topArtist.name.trim() || !isCount(stats.topArtist.plays)))) return null;
+  return stats;
+}
+
 export async function loadDeskContent(context: MoodServerContext): Promise<DeskContent> {
-  // Either source failing leaves its object empty; the rest of the desk stands.
-  const [feed, posts] = await Promise.all([
+  // Any source failing leaves its object empty; the rest of the desk stands.
+  const [feed, posts, github, stats, subscribers, listening] = await Promise.all([
     loadMoodFeed(context, { limit: 12 }).catch(() => null),
     getListedPosts().catch(() => []),
+    isE2ESiteFixtureEnabled(context.locals) ? null : loadGitHubWeek(),
+    loadDeskBlogStats(context),
+    loadDeskSubscriberCounts(context),
+    loadDeskListeningStats(context),
   ]);
   return {
     moods: (feed?.posts ?? []).filter(isMood).slice(0, MOODS).map(toMood).reverse(),
@@ -101,5 +188,9 @@ export async function loadDeskContent(context: MoodServerContext): Promise<DeskC
       date: format(monthYear, post.publishedAt),
     })),
     postCount: posts.length,
+    writing: summariseDeskWriting(posts, stats),
+    github,
+    subscribers,
+    listening,
   };
 }

@@ -1,0 +1,224 @@
+# Desk backend: what /new needs from site-api
+
+## Implementation status (2026-10-04)
+
+Items 1, 2, 4 and 5 are implemented on `feat/desk-backend` in both repositories.
+The canonical contracts package was published as `@bunizao/contracts@0.13.0`
+through `contracts-v0.13.0`, and site-api now pins that release.
+
+- Mood, blog, subscriber and listening snapshots refresh daily at 19:00 UTC on the existing hourly
+  trigger. Mood photos use the archived post type; inactive current streaks
+  expire; the unpopulated sentiment timeline was removed.
+- `/api/v2/blog/stats` reads only KV and exposes aggregate events since the
+  first recorded opening. The desk uses it without mock reads and keeps its
+  writing ledger when the snapshot is unavailable.
+- Subscription confirmation has an atomic six-hour address cooldown across
+  synchronous and queued delivery. Optional honeypot, dwell token and browser
+  evidence are wired through the desk and shared blog/mood panels. Honeypots
+  return the normal success response without mail or Turnstile verification.
+- `site-api/scripts/refresh-stats.ts` supports a read-only budget report and
+  an explicit `--apply` that writes only the selected public snapshot keys.
+- `/api/v2/notify/stats` counts active, confirmed, unsuppressed blog/mood
+  subscriptions. `/api/v2/listening/stats` counts site playback sessions
+  started in the rolling seven days before the snapshot and names the most
+  played artist. Both read only KV, and the desk hides absent figures.
+- Subscribe accepts optional `source: 'desk' | 'blog' | 'mood'`. Migration
+  `0042_subscription_source.sql` adds nullable first-touch provenance without
+  assigning origins to historical subscribers. Unknown values are ignored;
+  retries, preferences and address changes preserve the original source.
+  The portal displays Origin and current subscription states by origin.
+
+The one-shot refresh was applied at `2026-10-03T17:19:14.732Z`. The public
+Mood endpoint returned that timestamp, 3,430 active posts and 1,191 photo posts.
+The blog snapshot contains 1,133 reads, 301 readers and 413 completions.
+Measured daily aggregation cost is 43,781 D1 rows: 34,646 Mood and 9,135 blog.
+
+The item 5 snapshots were seeded and read back on 2026-10-04 at
+`03:21:55.942Z` (subscriber counts) and `03:22:00.256Z` (listening).
+They contain 9 blog subscribers, 6 mood subscribers and 10 site plays in
+the preceding seven days. The top artist is Cheer Chen with 4 plays.
+Their aggregation read 18 and 35 D1 rows
+respectively. No subscriber records or historical playback events were written.
+
+Worker deployment is still pending, so the new routes, daily schedule and
+subscription controls are not yet active in production. Migration 0042
+has not been applied and must precede the new Worker code. Item 3 remains
+unnecessary while the README supplies the GitHub week.
+
+Validation: site unit tests 1,075 passed; site-api unit tests 2,083 passed;
+site-api integration tests 36 passed. Both repositories passed type/content
+checks, production builds and Worker upload dry-runs; documentation coverage
+passed for all 152 routes. Existing diagnostic hints remain.
+
+Written 2026-10-04 from the `agent/desk-home-prototype` branch of `site`
+(head `9ad0c321`), after the desk gained subscriptions, a letter panel, the
+painted GitHub year and the blog tally; revised the same day after the
+GitHub card moved to the profile README and the forms took the comment
+box's Turnstile flow. Facts about `site-api` are read from its
+`origin/main`, not from the local checkout, which is stale.
+
+The desk renders today without any of this. Where a figure has no source yet
+it is **mocked in `src/features/desk/server/content.ts`** (search for `MOCK`).
+Each item below names what the mock stands in for, so the executor can delete
+it in the same PR that wires the real source.
+
+## Already served, nothing to build
+
+| Desk feature | Endpoint | Notes |
+| --- | --- | --- |
+| Subscribe slips (writing, moods) | `POST /api/notify/subscribe` | Same payload as the blog and mood panels: `channels: ['blog' \| 'mood']`, `deliveryMode`, Turnstile action `notify_subscribe`. A refusal (`400 "Turnstile verification failed"`) opens Cloudflare's checkbox and sends again once. See 4 for what the route does not check yet. |
+| Letter panel | `POST /api/v2/messages` + `/api/v2/comments/dwell-token` | Runs the /message form client: dwell token, browser evidence, honeypot, Turnstile with the checkbox fallback. |
+| Painted GitHub year | `GET /api/github/contributions?days=365` | Real data: 365 days with GitHub levels; the total and the day under the pointer are read in the browser (`client/year.ts`). About ten minutes behind GitHub (Worker cache, 600s at the edge). |
+| GitHub week line | `raw.githubusercontent.com/bunizao/bunizao/HEAD/README.md` | Real data: the activity block the profile's `activity.yml` rewrites five times a day (00/05/10/15/20 UTC); an isolate rereads it at most every 30 minutes (`server/github.ts`). Private repositories are already unnamed there. |
+| GitHub avatar | `/static/github/bunizao/avatar` | The site's media proxy, one allowlisted login. |
+| Blog posts and words | Ghost, via `getListedPosts` + `writingLedger` | Real, computed at request time in `site`. |
+
+## 1. Restart the mood stats snapshot (P0, ops + one flag)
+
+`GET /api/v2/mood/stats` serves a KV snapshot generated **2026-07-15T19:00Z**.
+The hourly refresh was switched off on 2026-07-16 (site-api `57a08b0`,
+`scheduledMoodStatsRefreshEnabled = false` in `src/worker-tasks.ts`, with the
+note "paused until the Mood stats UI ships"). Everything it says is now
+eleven weeks old: `totals.posts`, `lastPostAt` and `streaks.current` are wrong.
+
+- Turn the scheduled refresh back on, but daily, not hourly. The snapshot
+  aggregates over all of `mood_posts`; at 24 runs a day it spends D1 reads
+  (Free tier, 5M rows/day, shared with every other site DB) for figures that
+  move a few times a day. Measure one run's rows read
+  (`meta.rows_read` per query) before choosing the cadence.
+- **`media.photo` is 0**: the aggregation reads the `media` JSON column, but
+  about 970 archived photo rows have `media = NULL` while their objects sit
+  at R2 `mood/<id>/0`. Count photos by `type = 'photo'` instead
+  (`aggregateMedia` in `src/features/mood/server/mood-stats.ts`).
+- **`sentimentTimeline` is empty**: the query needs `sentiment_label` /
+  `sentiment_score`, and nothing has written them. Either backfill them
+  (through the tuuhub gateway, alias `task-guard` or a new alias, never a
+  vendor SDK) or drop the field from the contract. Don't ship an empty
+  chart.
+- Acceptance: `generatedAt` is less than 25h old, and `totals.posts` matches
+  `SELECT COUNT(*) FROM mood_posts WHERE is_deleted = 0` within a day.
+
+## 2. `GET /api/v2/blog/stats` (P1, new public route)
+
+Replaces the `mockReads` MOCK. Named for what it counts: everything else
+about these figures already says *blog* (the `/blog` routes, the
+`blog_analytics_events` table, the notify channel `blog`, the portal's
+blog analytics). The desk calls the section "writing"; the API does not
+need to follow the desk's prose.
+
+The source is `blog_analytics_events` (written by `POST
+/api/analytics/event`, table since site-api migration 0003, 2026-06-28). The
+admin portal already aggregates it in `getBlogAnalyticsSummary` /
+`getBlogAnalyticsArticleDetail`
+(`src/features/analytics/server/blog-analytics.ts`); reuse those queries,
+but expose only the public aggregates.
+
+```json
+{
+  "generatedAt": "2026-10-04T00:00:00.000Z",
+  "since": "2026-06-28T09:14:00.000Z",
+  "totals": { "reads": 12765, "readers": 4210, "completed": 3100 },
+  "posts": [
+    { "slug": "some-post", "reads": 2400, "completed": 610, "medianDwellMs": 182000 }
+  ]
+}
+```
+
+- **There is no backfill, so the figures carry their start.** Nothing was
+  counted before the table existed, and nothing can be recovered for
+  posts read before then. `since` is `MIN(opened_at)` over the table, kept
+  in the snapshot (not recomputed per request). Every figure means "since
+  `since`", never "all time".
+- The desk says exactly that: "Read 12,765 times since I started counting
+  in June 2026". It already renders this sentence from the mock
+  (`DeskWriting.reads.since` in `server/content.ts`). A post published
+  after `since` has its whole life counted; one published before has only
+  its tail. Neither is labelled per post on the desk, so no per-post
+  `since` is needed.
+- **Don't mix sources.** If older page views exist elsewhere (GA4,
+  Cloudflare Web Analytics), they are views, not reads, measured
+  differently and with bots counted another way. Never add them to
+  `reads`. If the owner wants them shown, a separate one-off import into a
+  separate `views` figure with its own label, and only on the owner's say.
+- A **read** is one distinct `eventId` (one page view). `readers` is distinct
+  `visitorId`. `completed` counts `completed = 1`. Bots never reach the table.
+- Public data only. Never return referrers, countries, user agents, visitor
+  ids or anything per event: `/docs` is public and so is this route.
+- Precompute into KV like the mood snapshot (daily or 6-hourly), with the
+  route reading only KV. No D1 work per request.
+- Cache: `public, max-age=300`, CDN `max-age=3600, stale-while-revalidate=86400`.
+- Contract: add `BlogStats` to `packages/contracts` in `site` (canonical),
+  publish by tag (`contracts-vX.Y.Z`), then raise the pin in `site-api`.
+- Docs: a "Blog stats" section in `src/content/docs/api/content.md`, then
+  `bun run check:docs-coverage` with `SITE_API_REPO=../site-api`.
+- Site side (after it ships): `loadDeskContent` fetches it through the same
+  service binding as the mood feed, joins by slug, takes `since` from it,
+  and drops `mockReads` and `MOCK_READS_SINCE`. The tally keeps working
+  without it: a missing snapshot hides the "Read N times" sentence, it
+  does not fail the page.
+
+## 3. `GET /api/v2/github/activity` (P3, only if the README stops being enough)
+
+The desk no longer needs this. The week line ("484 commits in 8 projects
+this week, among them site, moodle-cli and Attegi") is read from the
+profile README's activity block (see the table above), which already
+leaves private repositories unnamed. The `MOCK_REPOS` mock is gone.
+
+Build it only if the desk wants what the README does not have (languages,
+push times), or if the profile workflow is retired. Then:
+
+- **Public, non-fork, non-archived repositories only**, ordered by
+  `pushedAt`, at most 5. Private repos (the Koenig fork, site-api) must never
+  appear, not even by name; filter with `privacy: PUBLIC` in the query, not
+  afterwards. `src/lib/github.ts` already talks to GitHub's GraphQL with a
+  token for the contributions grid; extend it.
+- Same allowlist (`bunizao` only), rate limit and cache tiers as
+  `/api/github/contributions` (10 min in the Worker, 600s at the edge).
+- Docs: next to "GitHub contributions" in `content.md`.
+
+## 4. Subscribe risk parity (P2, site-api + contract)
+
+The letter and the comment box send four signals; `POST
+/api/notify/subscribe` takes one. Today it checks Turnstile and a rate limit,
+and double opt-in means nobody is subscribed without clicking the mail.
+What it still allows is using the form to send confirmation mail to
+someone else's inbox. Turnstile makes that slow, not impossible.
+
+- **Per-address cooldown on the confirmation mail** (do this first, and
+  check whether it already exists): an address that was sent a
+  confirmation in the last N hours gets the same `200` but no new mail.
+  This is the control that actually caps mail to a victim.
+- **Honeypot**: accept an optional `website` field. Filled means a bot:
+  answer the normal `200` and drop it, as the message route does.
+- **Dwell token**: accept an optional `dwellToken` from
+  `/api/v2/comments/dwell-token`, checked with `inspectDwellToken` like
+  messages. Missing or young: score it, don't refuse (old clients and the
+  blog/mood panels must keep working).
+- **Browser evidence**: `collectClientEvidence` output, scored the way
+  comments score it. Never refuse on the input method (owner's rule from
+  the comments flood work).
+- All additive and optional in the contract; unknown fields ignored, so
+  the desk slips can start sending them before the route reads them.
+  Site side: the slips mint the dwell token on open and send the honeypot
+  and evidence; the blog and mood panels follow in the same PR.
+
+## 5. Additional desk metrics (approved and implemented)
+
+- **Subscriber counts** ("212 readers get the moods by email") under the
+  slips. Social proof, but it publishes the size of the list; the owner
+  decides. Source: confirmed rows in the notify subscriber table, by channel.
+  Aggregate counts only.
+- **Listening counts** (plays this week, top artist) from
+  `listening_analytics_events`, for a line under the turntable.
+- **Where a subscription came from**: an optional `source: 'desk' | 'blog' |
+  'mood'` on `POST /api/notify/subscribe`, stored on the subscriber row, so
+  the portal can say whether the desk slips convert. It is a contract change.
+  Unknown values must be ignored, not rejected, so an old client never breaks.
+
+## Order
+
+1 is a flag and a query fix and unblocks the mood figures; do it first and
+alone. 2 needs a contracts release; 4's contract fields can ride in the
+same version. 4's cooldown needs no contract and can go any time. 3 waits
+until the README is not enough. Item 5 is now approved and implemented;
+apply its nullable Notify migration before deploying the API and then the site.

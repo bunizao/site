@@ -284,7 +284,8 @@ function foil(column: HTMLElement, surface: Surface): () => void {
 }
 
 export function initFoil(): () => void {
-  const frame = document.querySelector<HTMLElement>('[data-easel-frame]');
-  if (!frame) return () => {};
-  return foil(frame, { tiles: '.ab-badge', host: '.mo-photo', before: '.mo-hole', aspect: M_ASPECT, paint: paintM });
+  // The card scrolls with the About panel, and the light follows it there.
+  const panel = document.querySelector<HTMLElement>('[data-panel="about"]');
+  if (!panel) return () => {};
+  return foil(panel, { tiles: '.ab-badge', host: '.mo-photo', before: '.mo-hole', aspect: M_ASPECT, paint: paintM });
 }

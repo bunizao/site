@@ -2,34 +2,48 @@
 // thing off the table while its word in the prose (or the thing itself) is
 // pointed at, and names it on the gallery label. Opening a section drags a
 // coat of its colour over the whole canvas, row by row like a painter toning
-// a ground, and sets the section on it halfway through; every opened section
-// stays as a swatch tab. Going back to the painting scrapes the coat off with
-// the same knife. Below 640px the canvas takes the whole screen while a
-// section is on it. Esc, or the small painting at the start of the tabs, goes
+// a ground, and sets the section on it halfway through. While one is on the
+// canvas, every section is a tab along its top, the one on show in its
+// swatch, so the next is one click (or an arrow key, or on a phone a swipe)
+// away. Going back to the
+// painting scrapes the coat off with the same knife. Below 640px the canvas
+// takes the whole screen while a section is on it, as a step in the history.
+// Esc, the back gesture, or the small painting at the start of the tabs goes
 // back to the still life.
 //
-// Every part of the painting comes in on a fresh canvas laid over the one on
-// show, so the still life fades in piece by piece on the first visit and
-// fades from day to night when the theme turns. The easel says when it starts
-// a painting and when the paint is dry (`easel:painting`, `easel:painted`),
-// which is when the lamp may come on.
+// Every part of the painting is painted out of sight on a fresh canvas. The
+// first time, once the painting is in view, each comes up under the knife,
+// the wall row by row and then the things one drag after another; after
+// that, a fresh canvas fades up over the one on show. The painting is kept
+// by day and by night: once the one on show is dry, the other is painted out
+// of sight while the page is idle, so a turn of the theme only swaps which
+// canvases show (desk.css). The easel says when it starts a painting and
+// when the paint is dry (`easel:painting`, `easel:painted`), which is when
+// the lamp may come on, and which section it has just set on the canvas
+// (`easel:shown`).
+//
+// The record wears the song on it: each new cover from the listening card is
+// painted onto the sleeve and its colour onto the disc's label, brought up
+// under the knife over the one before, and the gallery label names the song.
 
 import { ASPECT, DISC, LAMP, THINGS, type Piece } from '@/features/desk/shared/still-life';
-import { coat, css, draw, seedOf, seeded, swatch, type Tone } from './knife';
+import { LISTENING_TRACK_EVENT, type ListeningTrackPayload } from '@/lib/listening/controller';
+import { coat, css, draw, seedOf, seeded, swatch, type Stroke, type Tone } from './knife';
+import { breathe } from './painterly';
+import { coverOf, labelOf, loadCover, tintOf, type Song } from './record';
 import { play, type Sound } from './sound';
 import { BLEED, paintBackdrop, paintLight, paintPiece } from './still-life';
 import { paintStudies } from './studies';
 
 interface Section {
   id: string;
-  tab: string;
+  tab?: string;
   title: string;
   date: string;
   medium: string;
   hue: number;
   chroma: number;
   href?: string;
-  hrefLabel?: string;
   panel?: boolean;
 }
 
@@ -43,6 +57,26 @@ const COVER_MS = 620;
 const SCRAPE_MS = 460;
 // A fresh canvas takes this long to come up over the one before it.
 const FADE_MS = 700;
+// The first painting comes up under the knife: the wall in this long, each
+// thing in this long, and each starts once the one before is this far along.
+const RISE_WALL_MS = 620;
+const RISE_THING_MS = 420;
+const RISE_NEXT_AT = 0.3;
+// A tapped thing's name stays this long, unless the next tap takes it first.
+const NAME_MS = 4000;
+// The nudge waits this long once the painting is in view; then each thing
+// lifts this long after the one to its left, and holds this long.
+const NUDGE_DELAY_MS = 700;
+const NUDGE_STEP_MS = 120;
+const NUDGE_HOLD_MS = 450;
+const NUDGE_KEY = 'desk-nudged';
+// A swipe turns to the next section once dragged this far, or thrown this
+// fast (px/ms); it starts once the finger has gone this far across, and not
+// this near the screen's edges.
+const SWIPE_PX = 80;
+const SWIPE_FLICK = 0.45;
+const SWIPE_SLOP = 10;
+const SWIPE_EDGE = 20;
 
 // What a thing sounds like when it is the one opened.
 const VOICES: Record<string, Sound> = {
@@ -67,6 +101,25 @@ const DRAG_SHARE = 0.34;
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
 const scaleOf = () => Math.min(devicePixelRatio || 1, 2);
+
+/** The painting's time of day, which is the theme's. */
+type Time = 'day' | 'night';
+const timeNow = (): Time => (document.documentElement.classList.contains('dark') ? 'night' : 'day');
+const otherTime = (time: Time): Time => (time === 'day' ? 'night' : 'day');
+
+const idle = () =>
+  new Promise<void>((resolve) =>
+    window.requestIdleCallback ? window.requestIdleCallback(() => resolve(), { timeout: 2000 }) : setTimeout(resolve, 60),
+  );
+
+/** Draws a coat's strokes as far as `t` (0..1) of the pass has dragged them. */
+const dragTo = (ctx: CanvasRenderingContext2D, strokes: { stroke: Stroke; at: number }[], t: number) => {
+  for (const { stroke, at } of strokes) {
+    const progress = clamp01((t - at * (1 - DRAG_SHARE)) / DRAG_SHARE);
+    if (progress <= 0) break;
+    draw(ctx, stroke, easeOut(progress));
+  }
+};
 
 function sized(canvas: HTMLCanvasElement, width: number, height: number, scale: number) {
   const w = Math.round(width * scale);
@@ -104,8 +157,7 @@ export function initEasel(): () => void {
     title: easel.querySelector<HTMLElement>('[data-label-title]'),
     date: easel.querySelector<HTMLElement>('[data-label-date]'),
     medium: easel.querySelector<HTMLElement>('[data-label-medium]'),
-    link: easel.querySelector<HTMLAnchorElement>('[data-label-link]'),
-    linkText: easel.querySelector<HTMLElement>('[data-label-link-text]'),
+    colophon: easel.querySelector<HTMLElement>('[data-label-colophon]'),
   };
   // Everything a full-screen canvas covers leaves the tab order.
   const outside = [...document.querySelectorAll<HTMLElement>('.desk-left, .desk-foot, [data-header-actions]')];
@@ -114,12 +166,31 @@ export function initEasel(): () => void {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const isNight = () => document.documentElement.classList.contains('dark');
 
-  /** Open sections, in the order they were opened. */
-  const opened: string[] = [];
+  // On a phone a section takes the screen, and the painting's frame with it;
+  // the painting goes on being made for the page, at the width it has there,
+  // so it is ready, and the small painting in the tabs has it, when the
+  // section closes.
+  let pageWidth = 0;
+  const paintWidth = () => (easel.classList.contains('is-full') ? pageWidth : (pageWidth = still.clientWidth));
+
+  /** Whether anything has been opened this visit. */
+  let openedAny = false;
   let active: string | null = null;
   let opener: HTMLElement | null = null;
-  let painted = { width: 0, night: false };
+  /** Whether the last press was a finger rather than a key or a mouse. */
+  let byFinger = false;
   let pass = 0;
+  /** The width each time of day was last painted whole at, and the song its record wears. */
+  const painted: Record<Time, number> = { day: 0, night: 0 };
+  const songOn: Record<Time, Song | null> = { day: null, night: null };
+  /** The time of day the paint was last said to be dry for. */
+  let onShow: Time | null = null;
+  /** The paint going on, one job at a time: which time of day, how wide, and whether out of sight. */
+  let job: { time: Time; width: number; quiet: boolean; stop: AbortController } | null = null;
+  /** The song once its cover is in. */
+  let song: Song | null = null;
+  /** The section the gallery label names, and whether it shows its link. */
+  let labelled: { id: string | null; open: boolean } = { id: null, open: false };
 
   // --- The still life --------------------------------------------------------
   // The things, back to front; the disc turns inside the record, under its
@@ -149,17 +220,89 @@ export function initEasel(): () => void {
     if (piece.id === 'record' && recordHolder) layers.push({ piece: DISC, holder: turntable, origin: [DISC.box[0] - BLEED, DISC.box[1] - BLEED] });
     if (holder) layers.push({ piece, holder, origin: [piece.box[0], piece.box[1]] });
   }
+  /** The parts of the painting that show the song: the disc, then its sleeve. */
+  const songLayers = layers.filter((layer) => layer.piece.id === 'disc' || layer.piece.id === 'record');
 
-  /** The canvas a holder shows for `className`: the newest that has come up. */
-  const shown = (holder: HTMLElement, className: string) => {
-    const all = holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}:not(.is-wet)`);
+  /** The canvas a holder shows for `className` at `time`: the newest that has come up. */
+  const shown = (holder: HTMLElement, className: string, time = timeNow()) => {
+    const all = holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}[data-time="${time}"]:not(.is-wet)`);
     return all[all.length - 1] ?? null;
   };
 
+  // Below a phone's fold the first painting would come up for no one; it
+  // waits until it is well in view.
+  let onSeen = () => {};
+  const seen = new Promise<void>((resolve) => (onSeen = resolve));
+  const seenWatch = new IntersectionObserver(([entry]) => {
+    if (!entry.isIntersecting) return;
+    seenWatch.disconnect();
+    onSeen();
+  }, { threshold: 0.4 });
+  seenWatch.observe(still);
+
+  /** When the next drag may start, and when every drag so far is done. */
+  let nextUp = 0;
+  let up: Promise<unknown> = Promise.resolve();
+
   /**
-   * Paints a fresh canvas over the one on show and brings it up; the old one
-   * goes once it is covered. `place` sizes the fresh one and gives back its
-   * context, ready for `work`.
+   * Brings a dry first coat up under knife drags, `ms` long, once the one
+   * before is far enough along: the strokes of a coat are a stencil, and the
+   * paint shows through them as they are dragged.
+   */
+  const bringUp = (canvas: HTMLCanvasElement, ms: number) =>
+    seen.then(
+      () =>
+        new Promise<void>((resolve) => {
+          const ctx = canvas.getContext('2d');
+          const dry = document.createElement('canvas');
+          dry.width = canvas.width;
+          dry.height = canvas.height;
+          dry.getContext('2d')?.drawImage(canvas, 0, 0);
+          if (!ctx) return resolve();
+          const scale = scaleOf();
+          const strokes = coat(seeded(canvas.width * 7919 + canvas.height), canvas.width / scale, canvas.height / scale, { l: 0.5, c: 0, h: 0 });
+          const start = Math.max(performance.now(), nextUp);
+          nextUp = start + ms * RISE_NEXT_AT;
+
+          const render = (t: number) => {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (t >= 1) {
+              ctx.drawImage(dry, 0, 0);
+              return;
+            }
+            ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            dragTo(ctx, strokes, t);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(dry, 0, 0);
+            ctx.globalCompositeOperation = 'source-over';
+          };
+
+          render(0);
+          canvas.classList.add('is-rising');
+          const step = (now: number) => {
+            if (now >= start) {
+              const t = Math.min(1, (now - start) / ms);
+              render(t);
+              if (t >= 1) {
+                canvas.classList.remove('is-wet', 'is-rising');
+                return resolve();
+              }
+            }
+            requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        }),
+    );
+
+  /**
+   * Paints a fresh canvas for `time` over the one on show and brings it up;
+   * the old one goes once it is covered. `place` sizes the fresh one and
+   * gives back its context, ready for `work`. A fresh canvas fades up over an
+   * old one, unless `rise` brings it up under the knife like a first coat.
+   * A `quiet` one is for the time of day not on show: it only takes the old
+   * one's place, out of sight.
    */
   const layOver = async (
     holder: HTMLElement,
@@ -167,14 +310,17 @@ export function initEasel(): () => void {
     place: (canvas: HTMLCanvasElement) => CanvasRenderingContext2D | null,
     work: (ctx: CanvasRenderingContext2D) => Promise<void>,
     signal: AbortSignal,
+    { time, rise = false, quiet = false }: { time: Time; rise?: boolean; quiet?: boolean },
   ) => {
-    const old = [...holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}`)];
+    const all = [...holder.querySelectorAll<HTMLCanvasElement>(`:scope > canvas.${className}`)];
+    const old = all.filter((canvas) => canvas.dataset.time === time);
     const fresh = document.createElement('canvas');
     fresh.className = `${className} is-wet`;
+    fresh.dataset.time = time;
     fresh.setAttribute('aria-hidden', 'true');
     // Over the last of its kind; the first goes under everything else in
     // the holder but the disc's turntable.
-    const under = old[old.length - 1] ?? holder.querySelector(':scope > .sl-turn');
+    const under = all[all.length - 1] ?? holder.querySelector(':scope > .sl-turn');
     if (under) under.after(fresh);
     else holder.prepend(fresh);
     const ctx = place(fresh);
@@ -183,8 +329,30 @@ export function initEasel(): () => void {
       fresh.remove();
       return;
     }
+    if (quiet) {
+      fresh.classList.remove('is-wet');
+      old.forEach((canvas) => canvas.remove());
+      return;
+    }
+    if ((!old.length || rise) && !reduced.matches) {
+      const rising = bringUp(fresh, className === 'sl-backdrop' ? RISE_WALL_MS : RISE_THING_MS);
+      up = Promise.all([up, rising]);
+      void rising.then(() => old.forEach((canvas) => canvas.remove()));
+      return;
+    }
     fresh.classList.remove('is-wet');
     window.setTimeout(() => old.forEach((canvas) => canvas.remove()), reduced.matches ? 0 : FADE_MS + 80);
+  };
+
+  /** Sizes a fresh canvas for a part of the painting `width` wide, and sets it to draw in the painting's CSS pixels. */
+  const placer = ({ piece, origin }: Layer, width: number) => (canvas: HTMLCanvasElement) => {
+    const [x, y, w, h] = piece.box;
+    const scale = scaleOf();
+    canvas.style.left = `${(x - BLEED - origin[0]) * width}px`;
+    canvas.style.top = `${(y - BLEED - origin[1]) * width}px`;
+    const ctx = sized(canvas, (w + BLEED * 2) * width, (h + BLEED * 2) * width, scale);
+    ctx?.setTransform(scale, 0, 0, scale, -(x - BLEED) * width * scale, -(y - BLEED) * width * scale);
+    return ctx;
   };
 
   const paintThumb = () => {
@@ -211,18 +379,9 @@ export function initEasel(): () => void {
 
   // The knife work takes the best part of a second and gives the page room
   // as it goes; a newer pass (a resize, the theme) stops the one before.
-  let paintJob: AbortController | null = null;
-  const paint = async () => {
-    if (easel.classList.contains('is-full')) return;
-    const width = still.clientWidth;
-    const night = isNight();
-    if (!width || (width === painted.width && night === painted.night)) return;
-    painted = { width, night };
+  const paintWhole = async (time: Time, width: number, signal: AbortSignal, quiet: boolean) => {
+    const night = time === 'night';
     const scale = scaleOf();
-    paintJob?.abort();
-    const { signal } = (paintJob = new AbortController());
-    easel.dispatchEvent(new CustomEvent('easel:painting'));
-
     await layOver(
       still,
       'sl-backdrop',
@@ -233,54 +392,128 @@ export function initEasel(): () => void {
       },
       (ctx) => paintBackdrop(ctx, width, night, signal),
       signal,
+      { time, quiet },
     );
 
-    for (const { piece, holder, origin } of layers) {
+    // One song for the whole pass, though a new one may come in during it.
+    const playing = (songOn[time] = song);
+    for (const layer of layers) {
       if (signal.aborted) return;
-      const [x, y, w, h] = piece.box;
-      await layOver(
-        holder,
-        'sl-paint',
-        (canvas) => {
-          canvas.style.left = `${(x - BLEED - origin[0]) * width}px`;
-          canvas.style.top = `${(y - BLEED - origin[1]) * width}px`;
-          const ctx = sized(canvas, (w + BLEED * 2) * width, (h + BLEED * 2) * width, scale);
-          ctx?.setTransform(scale, 0, 0, scale, -(x - BLEED) * width * scale, -(y - BLEED) * width * scale);
-          return ctx;
-        },
-        (ctx) => paintPiece(ctx, piece, width, night, signal),
-        signal,
-      );
+      const art = songLayers.includes(layer) ? playing : null;
+      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, night, signal, art), signal, { time, quiet });
     }
-    if (signal.aborted) return;
-
-    // The light is soft; one pixel per CSS pixel is plenty.
+    await breathe();
+    // The lamp is the night: only the night has its light. It is soft; one
+    // pixel per CSS pixel is plenty.
+    if (signal.aborted || !night) return;
     const litCtx = sized(lit, width, width * ASPECT, 1);
     const airCtx = sized(air, width, width * ASPECT, 1);
-    if (litCtx && airCtx) {
-      litCtx.clearRect(0, 0, lit.width, lit.height);
-      airCtx.clearRect(0, 0, air.width, air.height);
-      paintLight(litCtx, airCtx, width, night);
+    if (!litCtx || !airCtx) return;
+    litCtx.clearRect(0, 0, lit.width, lit.height);
+    airCtx.clearRect(0, 0, air.width, air.height);
+    paintLight(litCtx, airCtx, width, true);
+  };
+
+  /** Repaints only the disc and its sleeve, with the song playing. */
+  const paintRecord = async (time: Time, width: number, signal: AbortSignal, quiet: boolean) => {
+    const playing = (songOn[time] = song);
+    for (const layer of songLayers) {
+      if (signal.aborted) return;
+      await layOver(layer.holder, 'sl-paint', placer(layer, width), (ctx) => paintPiece(ctx, layer.piece, width, time === 'night', signal, playing), signal, {
+        time,
+        rise: true,
+        quiet,
+      });
     }
+  };
+
+  /** The paint for `time` is dry: the lamp may come on, and the small painting in the tabs takes it. */
+  const dry = (time: Time) => {
+    onShow = time;
     easel.classList.add('is-painted');
     easel.dispatchEvent(new CustomEvent('easel:painted'));
     paintThumb();
   };
 
+  /**
+   * Starts the next job, if nothing is being painted: the time of day on show
+   * first, then the song on its record; then, once the page is idle and out
+   * of sight, the same for the other time.
+   */
+  const settle = () => {
+    const width = paintWidth();
+    if (job || !width) return;
+    const time = timeNow();
+    const other = otherTime(time);
+    if (painted[time] !== width) return void run(time, width, false, paintWhole);
+    // Painted already, out of sight: the theme has only swapped the canvases.
+    if (onShow !== time) dry(time);
+    if (songOn[time] !== song) return void run(time, width, false, paintRecord);
+    if (painted[other] !== width) return void run(other, width, true, paintWhole);
+    if (songOn[other] !== song) return void run(other, width, true, paintRecord);
+  };
+
+  const run = async (time: Time, width: number, quiet: boolean, work: typeof paintWhole) => {
+    const stop = new AbortController();
+    const { signal } = stop;
+    job = { time, width, quiet, stop };
+    if (quiet) await idle();
+    if (signal.aborted) return;
+    if (work === paintWhole && !quiet) easel.dispatchEvent(new CustomEvent('easel:painting'));
+    await work(time, width, signal, quiet);
+    // Dry is not done until the knife has brought every part up.
+    if (!quiet) await up;
+    if (signal.aborted) return;
+    job = null;
+    if (work === paintWhole) painted[time] = width;
+    if (quiet) paintAllSwatches(time);
+    else if (work === paintWhole) dry(time);
+    else paintThumb();
+    settle();
+  };
+
+  /** A new size or theme: stops the paint going on, unless it is still the right job. */
+  const repaint = () => {
+    const width = paintWidth();
+    const time = timeNow();
+    if (job && job.width === width && (job.time === time) !== job.quiet) return;
+    job?.stop.abort();
+    job = null;
+    settle();
+  };
+
   // --- Swatches ----------------------------------------------------------------
-  const swatchTone = (el: HTMLElement): Tone => {
+  const swatchTone = (el: HTMLElement, time: Time): Tone => {
     const style = getComputedStyle(el);
     const h = Number(style.getPropertyValue('--h')) || 0;
     const c = Number(style.getPropertyValue('--c')) || 0;
-    return isNight() ? { l: 0.42, c: c * 1.15, h } : { l: 0.87, c: c * 1.3, h };
+    return time === 'night' ? { l: 0.42, c: c * 1.15, h } : { l: 0.87, c: c * 1.3, h };
   };
 
-  const paintSwatch = (el: HTMLElement) => {
-    if (!el.offsetWidth) return;
-    const url = swatch(el.offsetWidth * 1.08 + 8, el.offsetHeight + 4, swatchTone(el), seedOf(el.textContent ?? ''));
-    if (!url) return;
-    el.style.setProperty('--swatch', `url(${url})`);
-    el.classList.add('has-swatch');
+  // Each swatch as painted for each time of day and size: a turn of the
+  // theme only swaps them, and so does a phone's tab growing to show its name.
+  const swatches = new WeakMap<HTMLElement, Map<string, string>>();
+
+  /** Paints the swatch behind each of `els` for `time`, measuring all of them
+      before painting any: a write between two reads would lay the page out
+      again. Only the time on show is put on. */
+  const paintSwatches = (els: HTMLElement[], time = timeNow()) => {
+    const measured = els.map((el) => ({ el, width: el.offsetWidth, height: el.offsetHeight, tone: swatchTone(el, time) }));
+    for (const { el, width, height, tone } of measured) {
+      if (!width) continue;
+      const key = `${time} ${width}x${height}`;
+      const kept = swatches.get(el) ?? new Map<string, string>();
+      let url = kept.get(key);
+      if (!url) {
+        url = swatch(width * 1.08 + 8, height + 4, tone, seedOf(el.textContent ?? ''));
+        if (!url) continue;
+        swatches.set(el, kept.set(key, url));
+      }
+      const value = `url(${url})`;
+      if (time !== timeNow() || el.style.getPropertyValue('--swatch') === value) continue;
+      el.style.setProperty('--swatch', value);
+      el.classList.add('has-swatch');
+    }
   };
 
   // Whatever in a panel is marked `data-slab` (the mood bubbles) is painted as
@@ -296,10 +529,8 @@ export function initEasel(): () => void {
     });
   };
 
-  const paintSwatches = () => {
-    document.querySelectorAll<HTMLElement>('.desk-chip').forEach(paintSwatch);
-    tabs.forEach((tab) => !tab.hidden && paintSwatch(tab));
-  };
+  const paintAllSwatches = (time = timeNow()) =>
+    paintSwatches([...document.querySelectorAll<HTMLElement>('.desk-chip'), ...[...tabs.values()].filter((tab) => !tab.hidden)], time);
 
   // --- The coat ------------------------------------------------------------------
   const coatTone = (section: Section): Tone =>
@@ -332,11 +563,7 @@ export function initEasel(): () => void {
       ctx.drawImage(base, 0, 0);
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.globalCompositeOperation = scrape ? 'destination-out' : 'source-over';
-      for (const { stroke, at } of strokes) {
-        const progress = clamp01((t - at * (1 - DRAG_SHARE)) / DRAG_SHARE);
-        if (progress <= 0) break;
-        draw(ctx, stroke, easeOut(progress));
-      }
+      dragTo(ctx, strokes, t);
       ctx.globalCompositeOperation = 'source-over';
       if (t >= 1 && tone) {
         // The finished coat owns the whole ground: whatever the knife skipped
@@ -374,31 +601,36 @@ export function initEasel(): () => void {
   };
 
   // --- Label, tabs, panels ---------------------------------------------------------
-  const setLabel = (section: Section | null, withLink: boolean) => {
+  /** Names `section` on the label, or the painting; `open` while it is on the canvas. */
+  const setLabel = (section: Section | null, open: boolean) => {
+    labelled = { id: section?.id ?? null, open };
     const shown = section ?? painting;
     if (label.title) label.title.textContent = shown.title;
     if (label.date) label.date.textContent = shown.date;
     if (label.medium) label.medium.textContent = shown.medium;
-    if (!label.link || !label.linkText) return;
-    const href = withLink ? section?.href : undefined;
-    label.link.hidden = !href;
-    if (href) {
-      label.link.href = href;
-      label.linkText.textContent = section?.hrefLabel ?? 'open the page';
-    }
+    // The colophon waits by the label while nothing is open; pointing at it
+    // only names it. The way to a section's own page is in its panel.
+    if (label.colophon) label.colophon.hidden = open;
   };
 
   const syncTabs = () => {
-    tabBar.hidden = opened.length === 0;
+    tabBar.hidden = active === null;
     tabs.forEach((tab, id) => {
-      const at = opened.indexOf(id);
-      const wasHidden = tab.hidden;
-      tab.hidden = at === -1;
-      tab.style.order = String(at);
       tab.classList.toggle('is-active', id === active);
       tab.querySelector('[data-tab-select]')?.setAttribute('aria-selected', String(id === active));
-      if (wasHidden && !tab.hidden) paintSwatch(tab);
     });
+    // Every time: on a phone the one on show is wider than the rest.
+    if (active !== null) paintSwatches([...tabs.values()]);
+    // Under a finger the tabs slide in one row; the active one stays in sight.
+    // By hand, not scrollIntoView, which would also scroll the page.
+    const shown = active ? tabs.get(active) : null;
+    const list = shown?.parentElement;
+    if (shown && list) {
+      const box = list.getBoundingClientRect();
+      const { left, right } = shown.getBoundingClientRect();
+      if (left < box.left) list.scrollLeft += left - box.left;
+      else if (right > box.right) list.scrollLeft += right - box.right;
+    }
     homeButton.classList.toggle('is-active', active === null);
     homeButton.setAttribute('aria-pressed', String(active === null));
   };
@@ -422,15 +654,21 @@ export function initEasel(): () => void {
     });
   };
 
+  /** Everything painted in a panel: its studies, its slabs and its daubs. */
+  const paintPanel = (panel: HTMLElement) => {
+    paintStudies(panel, isNight());
+    const section = sections.get(panel.dataset.panel ?? '');
+    if (section) paintSlabs(panel, section);
+    paintSwatches([...panel.querySelectorAll<HTMLElement>('[data-daub]')]);
+  };
+
   const showPanel = (id: string) => {
     const panel = panels.get(id);
     if (!panel || active !== id) return;
     panels.forEach((other) => other !== panel && (other.hidden = true));
     panel.hidden = false;
     panel.scrollTop = 0;
-    paintStudies(panel, isNight());
-    const section = sections.get(id);
-    if (section) paintSlabs(panel, section);
+    paintPanel(panel);
     if (!reduced.matches) {
       panel.animate(
         [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }],
@@ -438,14 +676,36 @@ export function initEasel(): () => void {
       );
     }
     panel.focus({ preventScroll: true });
+    easel.dispatchEvent(new CustomEvent('easel:shown', { detail: id }));
   };
 
+  // The coat's colour, on the root: the frame under the canvas and the label
+  // take it, and on a phone so do the system bars (desk.css).
+  const setCoat = (section: Section) => document.documentElement.style.setProperty('--coat', css(coatTone(section)));
+
   // --- Full screen, for phones -------------------------------------------------------
+  // The full-screen canvas is a place of its own: going there adds a step to
+  // the history, so the back gesture comes out of it instead of leaving the
+  // page. The step is marked in its state, and a reload keeps it.
+  const isFullStep = () => (history.state as { easelFull?: boolean } | null)?.easelFull === true;
+
+  // Under a laid coat the page is out of sight anyway. iOS still shows what
+  // is scrolled under its status bar; with the page hidden, the bar takes the
+  // body's colour, which is the coat's.
+  const conceal = (on: boolean) => outside.forEach((el) => (el.style.visibility = on ? 'hidden' : ''));
+
   const setFull = (on: boolean) => {
     if (easel.classList.contains('is-full') === on) return;
+    // The frame and label leave the page's flow; the section holds their
+    // place, or the page would shorten under the reader and pull the scroll
+    // up with it, never to give it back.
+    easel.style.minHeight = on ? `${easel.offsetHeight}px` : '';
+    if (on) pageWidth = still.clientWidth;
     easel.classList.toggle('is-full', on);
     document.documentElement.classList.toggle('easel-locked', on);
     outside.forEach((el) => (el.inert = on));
+    if (!on) conceal(false);
+    if (on && !isFullStep()) history.pushState({ ...history.state, easelFull: true }, '', location.href);
   };
 
   // --- Pointing at things --------------------------------------------------------------
@@ -456,11 +716,11 @@ export function initEasel(): () => void {
     setLabel(id ? sections.get(id) ?? null : null, false);
   };
 
-  // --- Open, switch, close ------------------------------------------------------------
+  // --- Open, switch, go back ----------------------------------------------------------
   const open = (id: string, from: HTMLElement | null = null) => {
     const section = sections.get(id);
     if (!section?.panel || !panels.has(id)) return;
-    if (!opened.includes(id)) opened.push(id);
+    openedAny = true;
     if (from) opener = from;
     if (active === id) {
       panels.get(id)?.focus({ preventScroll: true });
@@ -476,69 +736,138 @@ export function initEasel(): () => void {
     syncHash();
     if (phone.matches) setFull(true);
     easel.classList.add('is-covered');
-    easel.style.setProperty('--coat', css(coatTone(section)));
+    setCoat(section);
     still.inert = true;
     hidePanels();
-    void lay(coatTone(section), () => showPanel(id));
+    void lay(coatTone(section), () => showPanel(id)).then(() => {
+      if (active === id && easel.classList.contains('is-full')) conceal(true);
+    });
   };
 
-  const home = () => {
+  /** Back to the still life. `byHistory` when the back gesture asked, not the canvas's own controls. */
+  const home = (byHistory = false) => {
     if (active === null) return;
     active = null;
     syncTabs();
     setLabel(null, false);
-    syncHash();
+    // Left by the canvas's own controls, the full-screen step is spent; the
+    // step under it takes the hash once it is back (onPop).
+    if (isFullStep()) history.back();
+    else syncHash();
     hidePanels();
+    conceal(false);
     void lay(null).then(() => {
       if (active !== null) return;
       easel.classList.remove('is-covered');
       still.inert = false;
       setFull(false);
-      const back = opener?.isConnected && !opener.closest('[inert]') ? opener : things[0];
+      // Focus goes back to what opened the section. Without one (the page
+      // came in on a link to a section), the keyboard is given the first
+      // thing in the painting; a back gesture is no keyboard, so nothing is.
+      // Nor is a finger: Safari would ring the thing and the room would dim
+      // around its name.
+      if (byFinger) return;
+      const back = opener?.isConnected && !opener.closest('[inert]') ? opener : byHistory ? null : things[0];
       back?.focus({ preventScroll: true });
     });
-  };
-
-  const close = (id: string) => {
-    const at = opened.indexOf(id);
-    if (at === -1) return;
-    opened.splice(at, 1);
-    if (active !== id) {
-      syncTabs();
-      return;
-    }
-    const next = opened[Math.min(at, opened.length - 1)];
-    if (next) {
-      active = null;
-      open(next);
-    } else {
-      home();
-    }
   };
 
   // --- Input -------------------------------------------------------------------------
   const pointedAt = (target: EventTarget | null) =>
     target instanceof Element ? target.closest<HTMLElement>('[data-open], [data-hint]') : null;
 
+  // Pointing is a mouse or a pen over a thing, or the keyboard on it. A finger
+  // has no hover: one landing on the painting is a scroll or a tap, and the
+  // focus a tap leaves on a button is not pointing either.
+  const pointing = (event: Event) =>
+    event instanceof PointerEvent
+      ? event.pointerType !== 'touch'
+      : event.type === 'focusout' || (event.target instanceof Element && event.target.matches(':focus-visible'));
+
   const onOver = (event: Event) => {
+    if (!pointing(event)) return;
     const el = pointedAt(event.target);
     if (el) hot(el.dataset.open ?? el.dataset.hint ?? null);
   };
 
   const onOut = (event: Event) => {
+    if (!pointing(event)) return;
     const from = pointedAt(event.target);
     const to = pointedAt((event as FocusEvent | PointerEvent).relatedTarget);
     if (from && from !== to) hot(to ? to.dataset.open ?? to.dataset.hint ?? null : null);
   };
 
+  /**
+   * A finger's way of pointing: `id` is the thing just tapped that has a name
+   * and nothing else to do (the clock, the lamp), or null for a tap anywhere
+   * else. The name goes on the next tap or after NAME_MS, whichever is first,
+   * so a dimmed room never waits on a finger that has moved on.
+   */
+  let nameTimer = 0;
+  const nameByTouch = (id: string | null) => {
+    clearTimeout(nameTimer);
+    // A second tap on the same thing takes its name away.
+    const again = id !== null && things.some((el) => el.dataset.hint === id && el.classList.contains('is-hot'));
+    const shown = again ? null : id;
+    hot(shown);
+    if (shown) nameTimer = window.setTimeout(() => hot(null), NAME_MS);
+  };
+
+  const onPress = (event: Event) => (byFinger = event instanceof PointerEvent && event.pointerType === 'touch');
+
+  // A finger cannot hover, so a tap is the only way it reads a label. A touch
+  // that turns into a scroll ends in pointercancel, never here; and the clock
+  // is a bare span, which iOS sends no click for.
+  const onTap = (event: PointerEvent) => {
+    if (event.pointerType !== 'touch' || active) return;
+    const el = pointedAt(event.target);
+    // A link leaves the page, and a thing with a section opens it.
+    const named = el && !el.dataset.open && !(el instanceof HTMLAnchorElement) ? el.dataset.hint ?? null : null;
+    nameByTouch(named);
+  };
+
+  // --- A nudge, for fingers -------------------------------------------------------------
+  // Nothing hovers under a finger, so nothing says the painting can be
+  // tapped. The first time the dry painting is well in view on such a screen,
+  // its things lift in turn, left to right, once a session. The lamp is left
+  // out: it swings when touched, which says enough.
+  const nudgeTimers: number[] = [];
+  const nudge = () => {
+    const lifting = things.filter((el) => !el.hasAttribute('data-lamp')).sort((a, b) => a.offsetLeft - b.offsetLeft);
+    lifting.forEach((el, i) => {
+      const at = NUDGE_DELAY_MS + i * NUDGE_STEP_MS;
+      nudgeTimers.push(
+        window.setTimeout(() => el.classList.add('is-nudged'), at),
+        window.setTimeout(() => el.classList.remove('is-nudged'), at + NUDGE_HOLD_MS),
+      );
+    });
+  };
+  const nudgeWatch = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry.isIntersecting) return;
+      nudgeWatch.disconnect();
+      // Whoever has opened something has found the things already.
+      if (openedAny) return;
+      try {
+        sessionStorage.setItem(NUDGE_KEY, '1');
+      } catch {
+        /* Not kept: the next visit nudges again. */
+      }
+      nudge();
+    },
+    { threshold: 0.6 },
+  );
+  const nudged = () => {
+    try {
+      return sessionStorage.getItem(NUDGE_KEY) !== null;
+    } catch {
+      return false;
+    }
+  };
+
   const onClick = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0) return;
     const target = event.target as Element;
-    const closer = target.closest<HTMLElement>('[data-tab-close]');
-    if (closer) {
-      close(closer.closest<HTMLElement>('[data-tab]')?.dataset.tab ?? '');
-      return;
-    }
     const select = target.closest<HTMLElement>('[data-tab-select]');
     if (select) {
       open(select.closest<HTMLElement>('[data-tab]')?.dataset.tab ?? '');
@@ -555,12 +884,109 @@ export function initEasel(): () => void {
     open(trigger.dataset.open ?? '', trigger);
   };
 
+  /** The section `step` along the tabs from the one on show, round the ends. */
+  const along = (step: number) => {
+    const ids = [...tabs.keys()];
+    return ids[(ids.indexOf(active ?? '') + step + ids.length) % ids.length];
+  };
+
+  // --- A swipe, on a phone ---------------------------------------------------------------
+  // On the full-screen canvas the section follows a finger sideways. Let go
+  // far enough along, or flicked, it goes on the way it was thrown and the
+  // next section along the tabs is laid in its place; otherwise it comes back.
+  // Up and down stay the browser's, to scroll the section.
+  let swipe: { id: number; x: number; y: number; dx: number; vx: number; at: number; on: boolean; panel: HTMLElement } | null = null;
+
+  /** Whether something between `el` and `panel` scrolls sideways itself. */
+  const scrollsSideways = (el: Element | null, panel: HTMLElement) => {
+    for (; el && el !== panel; el = el.parentElement) {
+      if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+    }
+    return false;
+  };
+
+  const onSwipeStart = (event: PointerEvent) => {
+    if (event.pointerType !== 'touch' || !active || !easel.classList.contains('is-full')) return;
+    const panel = panels.get(active);
+    const target = event.target as Element;
+    // The screen's edges are the browser's back and forward.
+    if (!panel || !panel.contains(target) || event.clientX < SWIPE_EDGE || event.clientX > innerWidth - SWIPE_EDGE) return;
+    // The tonearm is dragged across, not swiped.
+    if (scrollsSideways(target, panel) || target.closest('[data-grip]')) return;
+    swipe = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, vx: 0, at: event.timeStamp, on: false, panel };
+  };
+
+  const onSwipeMove = (event: PointerEvent) => {
+    if (!swipe || event.pointerId !== swipe.id) return;
+    const dx = event.clientX - swipe.x;
+    if (!swipe.on) {
+      // More down than across: a scroll, which the browser has by now.
+      if (Math.abs(event.clientY - swipe.y) > Math.abs(dx)) {
+        if (Math.abs(event.clientY - swipe.y) > SWIPE_SLOP) swipe = null;
+        return;
+      }
+      if (Math.abs(dx) < SWIPE_SLOP) return;
+      swipe.on = true;
+    }
+    const dt = event.timeStamp - swipe.at;
+    if (dt > 0) swipe.vx = swipe.vx * 0.4 + ((dx - swipe.dx) / dt) * 0.6;
+    swipe.at = event.timeStamp;
+    swipe.dx = dx;
+    swipe.panel.style.translate = `${dx}px 0`;
+    swipe.panel.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / innerWidth));
+  };
+
+  const onSwipeEnd = (event: PointerEvent) => {
+    if (!swipe || event.pointerId !== swipe.id) return;
+    const { panel, dx, vx, on, at } = swipe;
+    swipe = null;
+    if (!on) return;
+    const from = { translate: `${dx}px 0`, opacity: panel.style.opacity };
+    panel.style.translate = '';
+    panel.style.opacity = '';
+    // A finger held still before it lifts has stopped the throw.
+    const thrown = event.timeStamp - at < 80 && Math.abs(vx) > SWIPE_FLICK && Math.sign(vx) === Math.sign(dx);
+    if (event.type !== 'pointerup' || (Math.abs(dx) < SWIPE_PX && !thrown)) {
+      panel.animate([from, { translate: '0 0', opacity: 1 }], { duration: 320, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+      return;
+    }
+    open(along(dx < 0 ? 1 : -1));
+    // Over the fade the next section's coat starts with (hidePanels).
+    panel.animate([from, { translate: `${Math.sign(dx) * innerWidth * 0.4}px 0`, opacity: 0 }], { duration: 140, easing: 'ease-out', fill: 'forwards' })
+      .finished.then((away) => away.cancel(), () => {});
+  };
+
   const onKey = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape' || event.defaultPrevented || !active) return;
-    // Another dialog (the command palette) owns its own Escape.
+    if (event.defaultPrevented || !active) return;
+    // Another dialog (the command palette) owns its own keys.
     if (document.activeElement?.closest('[role="dialog"]')) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      home();
+      return;
+    }
+    // The arrows go along the tabs from the tabs themselves, or from a
+    // section, which holds the focus once shown; not from inside one, where
+    // they may be scrolling or typing.
+    const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    const from = event.target as Element;
+    if (!step || event.altKey || event.metaKey || event.ctrlKey || !(tabBar.contains(from) || from.hasAttribute('data-panel'))) return;
     event.preventDefault();
-    home();
+    open(along(step));
+  };
+
+  // Part of a panel that was out of sight comes into it, a form opening: it
+  // is painted now, as the rest was when the panel opened.
+  const onRepaint = (event: Event) => {
+    const panel = (event.target as Element).closest<HTMLElement>('[data-panel]');
+    if (panel && !panel.hidden) paintPanel(panel);
+  };
+
+  // Back out of the full-screen canvas; any other step through the history
+  // keeps the hash saying what is on the canvas.
+  const onPop = () => {
+    if (active !== null && !isFullStep()) home(true);
+    else syncHash();
   };
 
   // A new size or theme repaints whatever is on the canvas, without the knife.
@@ -571,21 +997,18 @@ export function initEasel(): () => void {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.fillStyle = css(coatTone(section));
     ctx.fillRect(0, 0, width, height);
-    easel.style.setProperty('--coat', css(coatTone(section)));
+    setCoat(section);
     // A cancelled coat never reached its halfway mark.
     const panel = panels.get(section.id);
     if (panel?.hidden) showPanel(section.id);
-    else if (panel) {
-      paintStudies(panel, isNight());
-      paintSlabs(panel, section);
-    }
+    else if (panel) paintPanel(panel);
   };
 
   let resizeTimer = 0;
   const onResize = () => {
     clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => {
-      void paint();
+      repaint();
       const section = active ? sections.get(active) : null;
       if (!section) return;
       // Going full screen on a phone resizes the frame before the coat starts,
@@ -598,12 +1021,21 @@ export function initEasel(): () => void {
   const resizeObserver = new ResizeObserver(onResize);
   resizeObserver.observe(frame);
 
-  let night = isNight();
+  // A second row of tabs pushes the section down (desk.css). The observer
+  // reports before the frame paints, so the panel never shows under them.
+  // Hidden tabs measure nothing; the last section fades out where it stood.
+  const tabsObserver = new ResizeObserver(([entry]) => {
+    const height = entry.borderBoxSize[0].blockSize;
+    if (height) easel.style.setProperty('--tabs-h', `${height}px`);
+  });
+  tabsObserver.observe(tabBar);
+
+  let themeTime = timeNow();
   const themeObserver = new MutationObserver(() => {
-    if (isNight() === night) return;
-    night = isNight();
-    void paint();
-    paintSwatches();
+    if (timeNow() === themeTime) return;
+    themeTime = timeNow();
+    repaint();
+    paintAllSwatches();
     const section = active ? sections.get(active) : null;
     if (section) refill(section);
   });
@@ -611,31 +1043,97 @@ export function initEasel(): () => void {
 
   const onPhoneChange = () => setFull(phone.matches && active !== null);
 
+  // --- The song on the record --------------------------------------------------------
+  const vinylLabel = easel.querySelector<HTMLImageElement>('[data-vinyl-label]');
+  const listening = sections.get('listening');
+  let coverUrl = '';
+
+  const onTrack = (event: Event) => {
+    const track = (event as CustomEvent<ListeningTrackPayload>).detail;
+    const named = labelOf(track);
+    if (listening && named) {
+      Object.assign(listening, named);
+      if (labelled.id === 'listening') setLabel(listening, labelled.open);
+    }
+    // The record on the listening panel wears the cover too, once it is shown.
+    const thumb = track.thumbUrl?.trim() || track.artworkUrl?.trim();
+    if (vinylLabel && !vinylLabel.hidden && thumb) vinylLabel.src = thumb;
+
+    const url = coverOf(track);
+    if (url === coverUrl) return;
+    coverUrl = url;
+    void (url ? loadCover(url) : Promise.resolve(null)).then((image) => {
+      if (url !== coverUrl) return;
+      song = image ? { cover: image, tint: tintOf(track.accent) } : null;
+      // The record on show goes first; paint out of sight can wait.
+      if (job?.quiet) {
+        job.stop.abort();
+        job = null;
+      }
+      settle();
+    });
+  };
+
   document.addEventListener('click', onClick);
   document.addEventListener('keydown', onKey);
+  frame.addEventListener('pointerdown', onSwipeStart);
+  frame.addEventListener('pointermove', onSwipeMove);
+  frame.addEventListener('pointerup', onSwipeEnd);
+  frame.addEventListener('pointercancel', onSwipeEnd);
   document.addEventListener('pointerover', onOver);
   document.addEventListener('pointerout', onOut);
+  document.addEventListener('pointerup', onTap);
+  document.addEventListener('pointerdown', onPress);
+  document.addEventListener('keydown', onPress);
   document.addEventListener('focusin', onOver);
   document.addEventListener('focusout', onOut);
+  window.addEventListener('popstate', onPop);
   phone.addEventListener('change', onPhoneChange);
+  document.addEventListener(LISTENING_TRACK_EVENT, onTrack);
+  easel.addEventListener('easel:repaint', onRepaint);
 
-  // The painting waits for an idle moment; the chips wait for their font.
-  (window.requestIdleCallback ?? ((callback: () => void) => setTimeout(callback, 60)))(() => void paint());
-  void document.fonts.ready.then(paintSwatches);
+  // The painting waits for an idle moment. The chips are painted just after
+  // the first frame, when the page is already laid out and measuring them
+  // costs nothing, and again for any their font resizes once it is in.
+  void idle().then(settle);
+  requestAnimationFrame(() => setTimeout(() => {
+    paintAllSwatches();
+    void document.fonts.ready.then(() => paintAllSwatches());
+  }));
+
+  if (window.matchMedia('(hover: none)').matches && !reduced.matches && !nudged()) {
+    easel.addEventListener('easel:painted', () => nudgeWatch.observe(still), { once: true });
+  }
 
   // A shared link to /new#writing opens with the writing on the canvas.
   const initial = decodeURIComponent(location.hash.slice(1));
   if (initial && panels.has(initial)) open(initial);
 
   return () => {
+    job?.stop.abort();
+    clearTimeout(nameTimer);
+    nudgeTimers.forEach(clearTimeout);
+    nudgeWatch.disconnect();
+    seenWatch.disconnect();
     resizeObserver.disconnect();
+    tabsObserver.disconnect();
     themeObserver.disconnect();
     document.removeEventListener('click', onClick);
     document.removeEventListener('keydown', onKey);
+    frame.removeEventListener('pointerdown', onSwipeStart);
+    frame.removeEventListener('pointermove', onSwipeMove);
+    frame.removeEventListener('pointerup', onSwipeEnd);
+    frame.removeEventListener('pointercancel', onSwipeEnd);
     document.removeEventListener('pointerover', onOver);
     document.removeEventListener('pointerout', onOut);
+    document.removeEventListener('pointerup', onTap);
+    document.removeEventListener('pointerdown', onPress);
+    document.removeEventListener('keydown', onPress);
     document.removeEventListener('focusin', onOver);
     document.removeEventListener('focusout', onOut);
+    window.removeEventListener('popstate', onPop);
     phone.removeEventListener('change', onPhoneChange);
+    document.removeEventListener(LISTENING_TRACK_EVENT, onTrack);
+    easel.removeEventListener('easel:repaint', onRepaint);
   };
 }

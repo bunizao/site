@@ -1,0 +1,73 @@
+---
+// A subscription by email, at the foot of the writing and of the moods. It
+// goes in its section's Door: a second door, quieter than the first, that
+// unfolds a slip under them (client/subscribe.ts). The field is a slab of
+// paper laid with the knife, and the button and the chosen pace are daubs of
+// the section's colour, like its word in the prose. It posts to the same
+// pool as the blog's and the mood feed's own panels. Cloudflare's checkbox,
+// when it wants one, opens under the line that asks for it.
+interface Props {
+  channel: 'blog' | 'mood';
+  turnstileSiteKey: string;
+  subscriberCount?: number;
+}
+
+const { channel, turnstileSiteKey, subscriberCount } = Astro.props;
+const id = `subscribe-${channel}`;
+const say =
+  channel === 'blog'
+    ? 'New writing in your inbox, the day it goes up. Nothing else.'
+    : 'Moods in your inbox, as often as you like them.';
+const paces = [
+  ['instant', 'as they come'],
+  ['every_5h', 'every five hours'],
+  ['daily', 'once a day'],
+] as const;
+---
+
+<button class="door door-quiet" type="button" aria-expanded="false" aria-controls={id} data-subscribe-open data-daub>
+  Subscribe
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="2" y="3.5" width="12" height="9" rx="1.5" />
+    <path d="m2.5 4.5 5.5 4 5.5-4" />
+  </svg>
+</button>
+
+<form class="slip" id={id} data-desk-subscribe data-channel={channel} data-turnstile-site-key={turnstileSiteKey} hidden novalidate>
+  <label hidden aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+  <p class="slip-say">{say}</p>
+  {channel === 'mood' && (
+    <fieldset class="slip-paces">
+      <legend class="sr-only">How often</legend>
+      {paces.map(([value, label], i) => (
+        <label class="slip-pace">
+          <input class="sr-only" type="radio" name="deliveryMode" value={value} checked={i === 0} />
+          <span data-daub>{label}</span>
+        </label>
+      ))}
+    </fieldset>
+  )}
+  <div class="slip-row">
+    <label class="kf-field" data-slab>
+      <span class="sr-only">Email</span>
+      <input type="email" name="email" placeholder="you@example.com" autocomplete="email" inputmode="email" required />
+    </label>
+    <button class="door" type="submit" data-daub>Subscribe</button>
+  </div>
+  <p class="slip-note" data-subscribe-status role="status">One click to leave, any time. <a href="/privacy">Privacy</a></p>
+  <div class="slip-check"><div class="slip-turnstile" data-subscribe-turnstile></div></div>
+</form>
+{subscriberCount !== undefined && (
+  <p class="tally subscriber-count">
+    <strong>{subscriberCount.toLocaleString('en-US')}</strong> {subscriberCount === 1 ? 'reader gets' : 'readers get'} {channel === 'mood' ? 'the moods' : 'new writing'} by email.
+  </p>
+)}
+
+<style>
+  .subscriber-count {
+    flex-basis: 100%;
+    max-width: none;
+    margin: 0;
+    text-align: center;
+  }
+</style>

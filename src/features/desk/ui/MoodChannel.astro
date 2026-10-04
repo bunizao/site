@@ -5,7 +5,9 @@
 // time inside each one. `links` makes each bubble a link to its mood (in the
 // window); without it the channel is a still object inside a frame that is
 // already a button. On the easel each bubble is a slab of paint (`data-slab`,
-// painted by the easel script); until then it is a flat bubble.
+// painted by the easel script); until then it is a flat bubble. The times
+// are dated the way the mood feed dates them, in the reader's own time, with
+// a day over the first of each day (client/moods.ts).
 import type { DeskChannel, DeskMood } from '@/features/desk/server/content';
 
 interface Props {
@@ -41,7 +43,7 @@ const shorten = (text: string): string => {
               <span class="mc-text" lang={mood.lang}>{mood.text ? shorten(mood.text) : 'A photo, no words.'}</span>
               <span class="mc-meta">
                 {mood.reactions.map((reaction) => <span class="mc-react">{reaction}</span>)}
-                <time class="mc-time" datetime={mood.datetime}>{mood.date}</time>
+                <time class="mc-time" datetime={mood.datetime}>{mood.time}</time>
               </span>
             </span>
             {mood.thumb && (
@@ -120,6 +122,34 @@ const shorten = (text: string): string => {
 
   .mc-bubble:last-child {
     border-bottom-left-radius: 4px;
+  }
+
+  /* A day starts a group of its own, the way Telegram breaks one. */
+  .mc-stream :global(.mc-day + .mc-bubble) {
+    border-top-left-radius: 18px;
+  }
+
+  .mc-stream :global(.mc-bubble:has(+ .mc-day)) {
+    border-bottom-left-radius: 18px;
+  }
+
+  /* The day, as the mood feed heads it: "Today", "Yesterday", "October 1". */
+  .mc-stream :global(.mc-day) {
+    position: relative;
+    isolation: isolate;
+    align-self: center;
+    margin: 6px 0 3px;
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: var(--d-react);
+    color: var(--d-note);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+
+  .mc-stream :global(.mc-day:first-child) {
+    margin-top: 0;
   }
 
   a.mc-bubble:hover {

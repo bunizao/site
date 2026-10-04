@@ -103,6 +103,13 @@ A later switch goes through the same resolution and adds a theme-wipe
 transition. The wipe is skipped when the effective theme wouldn't change or
 when reduced motion is set.
 
+A page with a theme control of its own dispatches a `theme:set` event on
+`document`, with `light`, `dark`, or `system` as its `detail`. The script
+stores the setting and runs the same transition, without the dropdown's click
+sound. The desk's lamp at `/new` switches the theme this way. It also
+replaces the wipe with a crossfade, because it keeps both of its paintings
+ready.
+
 ## Footer
 
 Each page adds [`Footer.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/Footer.astro)

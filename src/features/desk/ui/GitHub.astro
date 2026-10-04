@@ -1,0 +1,43 @@
+---
+// The GitHub panel's card: who it is, the last year painted a dab a day
+// (studies.ts `year`, client/year.ts), and the week in a line from the
+// profile README (server/github.ts). The pointer, or a finger run along the
+// year, reads out the day under it; nothing else on the card asks to be read.
+import { profile } from '@/data/site';
+import type { DeskGitHubWeek } from '@/features/desk/server/github';
+
+interface Props {
+  week: DeskGitHubWeek | null;
+}
+
+const { week } = Astro.props;
+const login = 'bunizao';
+const span = week?.days === 7 ? 'this week' : `in ${week?.days} days`;
+const joint = (i: number, n: number) => (i === 0 ? '' : i === n - 1 ? ' and ' : ', ');
+---
+
+<div class="gh-card" data-year>
+  <a class="gh-who" href={`https://github.com/${login}`} target="_blank" rel="noopener noreferrer">
+    <img class="gh-face" src={`/static/github/${login}/avatar`} alt="" width="40" height="40" loading="lazy" decoding="async" />
+    <span class="gh-id">
+      <span class="gh-name">{profile.name}</span>
+      <span class="gh-login">@{login}</span>
+    </span>
+  </a>
+  <span class="gh-total" aria-live="polite"><strong data-year-total></strong><span>contributions in a year</span></span>
+
+  <figure class="yr">
+    <div class="yr-grid">
+      <canvas data-study="year" data-seed="year" data-year-canvas data-grip aria-hidden="true"></canvas>
+      <span class="yr-mark" data-year-mark hidden></span>
+    </div>
+    <div class="yr-months" data-year-months aria-hidden="true"></div>
+    <figcaption class="yr-read" data-year-read aria-live="polite"></figcaption>
+  </figure>
+
+  {week && week.commits > 0 && (
+    <p class="gh-week">
+      <strong>{week.commits.toLocaleString('en-US')}</strong> commits in {week.projects} {week.projects === 1 ? 'project' : 'projects'} {span}{week.repos.length > 0 && <>, among them {week.repos.map((repo, i) => <>{joint(i, week.repos.length)}<a href={repo.href} target="_blank" rel="noopener noreferrer">{repo.name}</a></>)}</>}.
+    </p>
+  )}
+</div>
