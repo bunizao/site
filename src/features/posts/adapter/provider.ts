@@ -16,7 +16,10 @@ export function createGhostContentProvider(
 
   async function getDataset() {
     if (!datasetPromise) {
-      datasetPromise = buildGhostDataset(options);
+      datasetPromise = buildGhostDataset(options).catch((error) => {
+        datasetPromise = null;
+        throw error;
+      });
     }
 
     return datasetPromise;
