@@ -1,0 +1,406 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import AnimatedLogo from '@/features/logos/ui/AnimatedLogo.astro';
+import {
+  PEEK_NOT_FOUND_LOGO,
+  getPeekRuntimeSlotKey,
+  getPeekRuntimeTrackingPoseKeys,
+} from '@/features/logos/data/peek-runtime';
+
+const title = 'Page not found';
+const description = "The page you're looking for isn't here.";
+const trackerDefaultAnimation = getPeekRuntimeSlotKey('not-found.tracker.default');
+const trackerHoverAnimation = getPeekRuntimeSlotKey('not-found.cta.hover');
+const trackerClickAnimation = getPeekRuntimeSlotKey('not-found.cta.click');
+const trackerPoseKeys = getPeekRuntimeTrackingPoseKeys('not-found');
+
+// Static fallback path. The client script replaces it with the browser's real
+// requested URI because static 404 pages do not receive the missing route.
+const rawPath = Astro.url.pathname + Astro.url.search;
+const displayPath = rawPath.length > 48 ? rawPath.slice(0, 47) + '…' : rawPath;
+---
+
+<Layout title={title} description={description} robots="noindex, follow" hideSiteNav>
+  <main
+    class="not-found"
+    data-peek-hover={trackerHoverAnimation}
+    data-peek-click={trackerClickAnimation}
+    data-peek-track-poses={JSON.stringify(trackerPoseKeys)}
+  >
+    <h1 class="nf-sr-only">Page not found</h1>
+
+    <div class="nf-stage">
+      <p class="nf-number" aria-hidden="true"
+        ><span class="nf-digit">4</span
+        ><span class="nf-digit">0</span
+        ><span class="nf-digit">4</span
+      ></p>
+
+      <p class="nf-path">
+        <span class="nf-sr-only">Requested path:</span>
+        <span data-nf-path-url>{displayPath}</span>
+      </p>
+
+      <a href="/" class="nf-home">
+        <span class="nf-peek" data-nf-peek aria-hidden="true">
+          <AnimatedLogo
+            definition={PEEK_NOT_FOUND_LOGO}
+            animation={trackerDefaultAnimation}
+            size={150}
+            title="peek"
+            eventChannel="nf"
+            eventAnimations={[
+              trackerHoverAnimation,
+              trackerClickAnimation,
+              ...trackerPoseKeys,
+            ]}
+          />
+        </span>
+        <span class="nf-home-label">
+          <span class="nf-home-arrow" aria-hidden="true">←</span>
+          <span class="nf-home-text">go home</span>
+        </span>
+      </a>
+    </div>
+  </main>
+
+  <script>
+    const notFound = document.querySelector<HTMLElement>('.not-found');
+    const homeLink = document.querySelector<HTMLAnchorElement>('.nf-home');
+    const canAnimate = window.matchMedia(
+      '(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)',
+    );
+
+    const dispatchPeek = (kind: 'set' | 'revert', animation?: string): void => {
+      window.dispatchEvent(
+        new CustomEvent(`peek:nf:${kind}`, animation ? { detail: { animation } } : undefined),
+      );
+    };
+
+    // Static 404s render at build time, so the served path is the only source
+    // for what the visitor actually asked for.
+    const pathLabel = document.querySelector<HTMLElement>('[data-nf-path-url]');
+    if (pathLabel) {
+      const uri = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      pathLabel.textContent = uri.length > 48 ? `${uri.slice(0, 47)}…` : uri;
+    }
+
+    // The digits lean with the cursor. --mx/--my are -1..1 across the viewport;
+    // each digit scales them by its own depth so the 0 lags behind the fours.
+    const numberEl = document.querySelector<HTMLElement>('.nf-number');
+    let leanFrame = 0;
+
+    const setLean = (mx: number, my: number): void => {
+      numberEl?.style.setProperty('--mx', mx.toFixed(3));
+      numberEl?.style.setProperty('--my', my.toFixed(3));
+    };
+
+    const applyLean = (event: PointerEvent): void => {
+      if (!numberEl || leanFrame) return;
+      const { clientX, clientY } = event;
+      leanFrame = window.requestAnimationFrame(() => {
+        leanFrame = 0;
+        setLean(
+          (clientX / (window.innerWidth || 1)) * 2 - 1,
+          (clientY / (window.innerHeight || 1)) * 2 - 1,
+        );
+      });
+    };
+
+    const releaseLean = (): void => {
+      window.cancelAnimationFrame(leanFrame);
+      leanFrame = 0;
+      setLean(0, 0);
+    };
+
+    // Peek follows the cursor while idle, looks up on hover, dissolves on click.
+    const TRACK_POSES = JSON.parse(notFound?.dataset.peekTrackPoses ?? '[]') as string[];
+    let trackingBucket: number | null = null;
+    let isHovering = false;
+    let isLeaving = false;
+
+    const applyTrack = (event: PointerEvent): void => {
+      if (isHovering || isLeaving || TRACK_POSES.length === 0) return;
+      const bucket = Math.min(
+        TRACK_POSES.length - 1,
+        Math.max(0, Math.floor((event.clientX / (window.innerWidth || 1)) * TRACK_POSES.length)),
+      );
+      if (bucket === trackingBucket) return;
+      trackingBucket = bucket;
+      dispatchPeek('set', TRACK_POSES[bucket]);
+    };
+
+    const releaseTrack = (): void => {
+      if (isHovering || isLeaving || trackingBucket === null) return;
+      trackingBucket = null;
+      dispatchPeek('revert');
+    };
+
+    if (notFound && canAnimate.matches) {
+      notFound.addEventListener('pointermove', applyTrack);
+      notFound.addEventListener('pointermove', applyLean);
+      notFound.addEventListener('pointerleave', releaseTrack);
+      notFound.addEventListener('pointerleave', releaseLean);
+    }
+
+    if (homeLink) {
+      const onHover = () => {
+        isHovering = true;
+        trackingBucket = null;
+        dispatchPeek('set', notFound?.dataset.peekHover ?? 'alert');
+      };
+      const onUnhover = () => {
+        isHovering = false;
+        dispatchPeek('revert');
+      };
+
+      homeLink.addEventListener('pointerenter', onHover);
+      homeLink.addEventListener('focus', onHover);
+      homeLink.addEventListener('pointerleave', onUnhover);
+      homeLink.addEventListener('blur', onUnhover);
+
+      homeLink.addEventListener('click', () => {
+        isLeaving = true;
+        dispatchPeek('set', notFound?.dataset.peekClick ?? 'dissolve');
+      });
+    }
+  </script>
+</Layout>
+
+<style>
+  :global(body:has(.not-found) .global-header-actions) {
+    display: none;
+  }
+
+  :global(body:has(.not-found) .site-shell) {
+    min-height: 100svh;
+  }
+
+  .not-found {
+    --nf-fg: hsl(var(--foreground));
+    --nf-path: hsl(var(--foreground) / 0.5);
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 100svh;
+    color: var(--nf-fg);
+    background: hsl(var(--background));
+    font-family: var(--font-mono);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  :global(.dark) .not-found {
+    --nf-fg: hsl(0 0% 78%);
+    --nf-path: hsl(0 0% 78% / 0.5);
+  }
+
+  /* The number and the path are one statement, so they sit close; the link is a
+     separate move and gets the larger gap. */
+  .nf-stage {
+    display: grid;
+    justify-items: center;
+    gap: clamp(10px, 1.6svh, 18px);
+  }
+
+  /* The stage arrives in reading order. --nf-rise scales the travel to the
+     size of the element so the big numeral does not look static. */
+  .nf-digit,
+  .nf-path,
+  .nf-home {
+    animation: nf-enter 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* The digits land one after another, then follow the cursor. Entrance uses
+     transform and the lean uses translate, so the two never overwrite. */
+  .nf-digit {
+    --nf-rise: 24px;
+    display: inline-block;
+    animation-delay: calc(60ms + var(--nf-depth-i) * 90ms);
+    translate:
+      calc(var(--mx, 0) * var(--nf-pull-x))
+      calc(var(--my, 0) * var(--nf-pull-y));
+    transition: translate 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Pull rises evenly across the three digits, so every gap opens by the same
+     amount and the number reads as one plane tilting rather than a broken
+     word-space. */
+  .nf-digit:nth-child(1) {
+    --nf-depth-i: 0;
+    --nf-pull-x: 0.035em;
+    --nf-pull-y: 0.018em;
+  }
+
+  .nf-digit:nth-child(2) {
+    --nf-depth-i: 1;
+    --nf-pull-x: 0.075em;
+    --nf-pull-y: 0.030em;
+  }
+
+  .nf-digit:nth-child(3) {
+    --nf-depth-i: 2;
+    --nf-pull-x: 0.115em;
+    --nf-pull-y: 0.042em;
+  }
+
+  .nf-path {
+    animation-delay: 220ms;
+  }
+
+  .nf-home {
+    animation-delay: 340ms;
+  }
+
+  @keyframes nf-enter {
+    from {
+      opacity: 0;
+      transform: translateY(var(--nf-rise, 12px));
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .nf-number {
+    --mx: 0;
+    --my: 0;
+    margin: 0;
+    font-size: min(30svh, 15rem);
+    font-weight: 520;
+    font-variation-settings: "wght" 520;
+    line-height: 0.82;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .nf-path {
+    margin: 0;
+    max-width: min(48ch, 88vw);
+    overflow: hidden;
+    color: var(--nf-path);
+    font-family: var(--font-code);
+    font-size: clamp(12px, 1.3svh, 13px);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nf-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .nf-home {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: clamp(22px, 3.6svh, 42px);
+    gap: clamp(12px, 2svh, 18px);
+    color: var(--nf-fg);
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    text-transform: lowercase;
+  }
+
+  .nf-home:focus-visible {
+    outline: none;
+  }
+
+  .nf-peek {
+    display: inline-flex;
+  }
+
+  .nf-home-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    transition: gap 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .nf-home-arrow {
+    display: inline-block;
+    width: 13px;
+    font-size: 14px;
+    text-align: center;
+    transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .nf-home-text {
+    position: relative;
+  }
+
+  .nf-home-text::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: -4px;
+    left: 0;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: right center;
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .nf-home:hover .nf-home-label,
+  .nf-home:focus-visible .nf-home-label {
+    gap: 14px;
+  }
+
+  .nf-home:hover .nf-home-arrow,
+  .nf-home:focus-visible .nf-home-arrow {
+    transform: translateX(-5px);
+  }
+
+  .nf-home:hover .nf-home-text::after,
+  .nf-home:focus-visible .nf-home-text::after {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+
+  @media (max-width: 640px) {
+    .nf-number {
+      font-size: min(24svh, 9rem);
+    }
+
+    .nf-home {
+      font-size: 12px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-digit,
+    .nf-path,
+    .nf-home {
+      animation: none;
+    }
+
+    .nf-digit {
+      translate: none;
+      transition: none;
+    }
+
+    .nf-home-label,
+    .nf-home-arrow,
+    .nf-home-text::after {
+      transition: none;
+    }
+
+    .nf-home:hover .nf-home-arrow,
+    .nf-home:focus-visible .nf-home-arrow {
+      transform: none;
+    }
+  }
+</style>
