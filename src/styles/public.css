@@ -1,0 +1,10 @@
+/* The public pages' stylesheet: globals.css without the utilities only the
+   admin portal uses. The portal and the coss kit it is built from never
+   render here, yet their classes were two thirds of the compiled sheet, and
+   it blocks the first paint of every page. The portal loads globals.css
+   whole. The conversation playground on /components borrows the kit's tabs. */
+@import "./globals.css";
+@source not "../features/portal";
+@source not "../pages/dev/portal";
+@source not "../components/coss";
+@source "../components/coss/tabs.tsx";

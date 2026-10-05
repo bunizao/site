@@ -49,7 +49,7 @@ it also supplies the freshness-sensitive comments and reactions.
 | `src/lib/` | Shared utilities: `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `fonts.ts` (server-side mirrors of the font tokens), `runtime/env.ts`, `http/*`, and `media/responsive-image.ts`. |
 | `src/components/coss/` | Primitives built on Base UI, used by the admin portal. |
 | `src/layouts/` | `Layout.astro`, the base layout for the public site. The admin portal uses no layout: its page, `src/pages/dev/portal/[...path].astro`, mounts the client app under `.theme-portal`. |
-| `src/styles/` | `globals.css`: Tailwind directives, the HSL CSS-variable color system, the shared font tokens (`--font-mono`, `--font-code`, `--font-sans`, `--font-display`), and the `.theme-portal` token scope. |
+| `src/styles/` | `globals.css`: Tailwind directives, the HSL CSS-variable color system, the shared font tokens (`--font-mono`, `--font-code`, `--font-sans`, `--font-display`), and the `.theme-portal` token scope. Public pages load it through `public.css`, which leaves the portal's and the coss kit's sources out of Tailwind's scan; the portal loads it whole. |
 
 ## Component patterns
 
