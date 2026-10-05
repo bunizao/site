@@ -106,7 +106,7 @@ when reduced motion is set.
 A page with a theme control of its own dispatches a `theme:set` event on
 `document`, with `light`, `dark`, or `system` as its `detail`. The script
 stores the setting and runs the same transition, without the dropdown's click
-sound. The desk's lamp at `/new` switches the theme this way. It also
+sound. The desk's lamp at `/` switches the theme this way. It also
 replaces the wipe with a crossfade, because it keeps both of its paintings
 ready.
 
@@ -142,8 +142,11 @@ A page that uses `Page.astro` gets:
 The shared layout is built for the home page first, then adapted for
 document-style pages. Chrome styles live in
 [`src/styles/site-chrome.css`](https://github.com/bunizao/site/blob/main/src/styles/site-chrome.css),
-loaded alongside `globals.css`. The blog layout and the portal shell load only
-the shared globals, because they have their own chrome.
+loaded alongside `public.css`, the public pages' entry to `globals.css`. It
+leaves out the utilities only the admin portal and its coss kit use, which
+were two thirds of the compiled sheet. The blog layout loads only
+`public.css`, and the portal shell only `globals.css`, whole, because they
+have their own chrome.
 
 ## Motion tokens
 

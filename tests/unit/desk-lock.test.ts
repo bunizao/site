@@ -21,7 +21,7 @@ describe('desk lock', () => {
   test('falls back when the entry is missing or encrypted', () => {
     expect(isDeskUnlocked(fixture())).toBe(false);
     expect(isDeskUnlocked(fixture('U2FsdGVkX1ciphertext\n'))).toBe(false);
-    expect(isDeskUnlocked(fixture("export { default as DeskPage } from './Page.astro';\n"))).toBe(true);
+    expect(isDeskUnlocked(fixture("export { default as HomePage } from './Page.astro';\n"))).toBe(true);
   });
 });
 

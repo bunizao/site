@@ -39,7 +39,7 @@ it also supplies the freshness-sensitive comments and reactions.
 
 | Directory | What's in it |
 | --- | --- |
-| `src/pages/` | File-based routing: `index.astro` (home), `mood.astro` (feed shell and route bootstrap), `mood/[id].astro` (detail shell and route bootstrap), `mood/embed.astro` (embeddable widget), and `dev/blog/[id].astro` (authenticated Ghost draft preview). |
+| `src/pages/` | File-based routing: `index.astro` (home: the desk, or the legacy home without the desk's key), `legacy.astro` (the legacy home), `new.astro` (redirect to `/`), `mood.astro` (feed shell and route bootstrap), `mood/[id].astro` (detail shell and route bootstrap), `mood/embed.astro` (embeddable widget), and `dev/blog/[id].astro` (authenticated Ghost draft preview). |
 | `src/pages/api/` | A thin catch-all proxy that falls back to `site-api`. The concrete API implementations live in the private `site-api` repo. |
 | `src/pages/dev/` | The owner's dev portal and Ghost draft preview, behind Cloudflare Access, plus a narrow `/dev/portal/api/*` proxy to the `site-api` admin API. The portal is one client app: `dev/portal/[...path].astro` mounts it from `src/features/portal/`. |
 | `src/pages/oauth*` | `/oauth` and `/oauth/*` forward to `site-api` over the `API` binding (reader sign-in lives there). `/oauth/login` is answered here. |
@@ -49,7 +49,7 @@ it also supplies the freshness-sensitive comments and reactions.
 | `src/lib/` | Shared utilities: `e2e.ts` (shared E2E fixture flag), `utils.ts` (cn/clsx utility), `fonts.ts` (server-side mirrors of the font tokens), `runtime/env.ts`, `http/*`, and `media/responsive-image.ts`. |
 | `src/components/coss/` | Primitives built on Base UI, used by the admin portal. |
 | `src/layouts/` | `Layout.astro`, the base layout for the public site. The admin portal uses no layout: its page, `src/pages/dev/portal/[...path].astro`, mounts the client app under `.theme-portal`. |
-| `src/styles/` | `globals.css`: Tailwind directives, the HSL CSS-variable color system, the shared font tokens (`--font-mono`, `--font-code`, `--font-sans`, `--font-display`), and the `.theme-portal` token scope. |
+| `src/styles/` | `globals.css`: Tailwind directives, the HSL CSS-variable color system, the shared font tokens (`--font-mono`, `--font-code`, `--font-sans`, `--font-display`), and the `.theme-portal` token scope. Public pages load it through `public.css`, which leaves the portal's and the coss kit's sources out of Tailwind's scan; the portal loads it whole. |
 
 ## Component patterns
 

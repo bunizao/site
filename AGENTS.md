@@ -111,7 +111,7 @@ renaming, or deleting anything under `src/pages/` in **either** repo.
 
 ## Mood Navigation (Three-Level Menu)
 
-1. **Level 0 (Home Preview)**: `src/features/mood/ui/HomePreview.astro`
+1. **Level 0 (Home Preview)**: `src/features/mood/ui/HomePreview.astro`, on the legacy home at `/legacy`
 2. **Level 1 (Mood Feed)**: `/mood` with `src/features/mood/ui/TimelineWheel.astro`
 3. **Level 2 (Mood Detail)**: `/mood/[id]`
 

@@ -139,7 +139,6 @@ describe('agent markdown registry', () => {
     // Build-backed: a deploy starts the platform cache cold, so the platform
     // holds them for a day while outside shared caches keep a short TTL.
     for (const path of [
-      '/',
       '/llms.txt',
       '/projects',
       '/sitemap.xml',
@@ -154,7 +153,10 @@ describe('agent markdown registry', () => {
     }
     expect(getContentRoutePolicy('/privacy')?.cacheTtlSeconds).toBe(86400);
     expect(getContentRoutePolicy('/privacy')?.sharedCacheTtlSeconds).toBe(3600);
-    // The Mood feed is live.
+    // The home page and the Mood feed are live.
+    expect(getContentRoutePolicy('/')?.cacheTtlSeconds).toBe(300);
+    expect(getContentRoutePolicy('/')?.cacheStaleWhileRevalidateSeconds).toBe(1800);
+    expect(getContentRoutePolicy('/')?.edgeCacheHtml).toBe(false);
     expect(getContentRoutePolicy('/mood/rss.xml')?.cacheTtlSeconds).toBe(300);
     expect(getContentRoutePolicy('/mood/rss.xml')?.sharedCacheTtlSeconds).toBeUndefined();
   });
@@ -203,10 +205,10 @@ describe('agent markdown registry', () => {
   });
 
   test('skips the asset probe only for SSR-only worker-first paths', () => {
-    for (const path of ['/mood', '/mood/990001', '/mood/embed', '/mood/rss.xml', '/mood/subscribe', '/reader/confirm']) {
+    for (const path of ['/', '/mood', '/mood/990001', '/mood/embed', '/mood/rss.xml', '/mood/subscribe', '/reader/confirm']) {
       expect(isSsrOnlyPath(path)).toBe(true);
     }
-    for (const path of ['/', '/blog', '/blog/example', '/privacy', '/projects', '/mood-og.png', '/mood/', '/mood/a/b', '/reader/x.css']) {
+    for (const path of ['/blog', '/blog/example', '/privacy', '/projects', '/legacy', '/mood-og.png', '/mood/', '/mood/a/b', '/reader/x.css']) {
       expect(isSsrOnlyPath(path)).toBe(false);
     }
   });
@@ -290,7 +292,7 @@ describe('agent markdown registry', () => {
   });
 
   test('refreshes platform policy on static asset 304 responses', () => {
-    for (const pathname of ['/', '/blog', '/blog/example'] as const) {
+    for (const pathname of ['/blog', '/blog/example'] as const) {
       const response = withContentPolicy(
         new Request(`https://buxx.me${pathname}`),
         new Response(null, {

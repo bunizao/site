@@ -23,9 +23,11 @@ bun install
 
 ## Encrypted source
 
-The optional `/new` surface lives under `src/features/desk/`. Git stores those
-files and `plans/desk-*.md` through the vendored transcrypt 2.3.2 filter.
-A clone without a key builds the public home; `/new` redirects to `/`.
+The desk, the home page at `/`, lives under `src/features/desk/`. Git stores
+those files and `plans/desk-*.md` through the vendored transcrypt 2.3.2 filter.
+A clone without a key builds the legacy home at `/` in its place. Either way
+the legacy home is also at `/legacy`, and `/new`, where the desk started,
+redirects to `/`.
 The normal check, build and unit-test commands work in either state.
 
 The same filter and key cover every `*.internal.md` page under
@@ -117,7 +119,7 @@ route can skip work it doesn't need:
 
 | Command | Surface |
 | --- | --- |
-| `bun dev:home` | Home page only |
+| `bun dev:home` | Legacy home page (`/legacy`) only |
 | `bun dev:mood` | Mood feed and detail |
 | `bun dev:richtext` | Mood with the rich-text fixture loaded |
 | `bun dev:preview` | Draft preview routes |

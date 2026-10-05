@@ -1,6 +1,4 @@
 ---
-import { DeskPage } from '@desk';
 export const prerender = false;
-if (!DeskPage) return Astro.redirect('/');
+return Astro.redirect('/', 308);
 ---
-<DeskPage />

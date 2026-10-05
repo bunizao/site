@@ -18,7 +18,7 @@ function fixture() {
     copyFileSync(join(process.cwd(), 'scripts', name), join(dir, 'scripts', name));
   }
   writeFileSync(join(dir, '.gitattributes'), 'src/features/desk/** filter=crypt diff=crypt merge=crypt\n');
-  writeFileSync(join(dir, 'src/features/desk/index.ts'), 'export const DeskPage = null;\n');
+  writeFileSync(join(dir, 'src/features/desk/index.ts'), 'export const HomePage = null;\n');
   writeFileSync(join(dir, 'src/features/desk/image.png'), Buffer.from([0, 1, 128, 255]));
   git(dir, ['init', '-q']);
   git(dir, ['config', 'user.name', 'Fixture']);
@@ -160,7 +160,7 @@ describe('desk initialization', () => {
     expect(unlock(dir, undefined, ['--reset-bootstrap']).stderr).toContain('encrypted history');
   }, 30_000);
 
-  for (const entry of ['export const DeskPage = null;\n', 'export{};\n']) {
+  for (const entry of ['export const HomePage = null;\n', 'export{};\n']) {
     test(`rejects a wrong key in a fresh encrypted clone (${entry.length} bytes)`, () => {
       const dir = fixture();
       writeFileSync(join(dir, 'src/features/desk/index.ts'), entry);

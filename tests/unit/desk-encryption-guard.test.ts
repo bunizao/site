@@ -40,6 +40,14 @@ test('accepts the public shell and shared tests alongside ciphertext', () => {
   expect(check(dir).status).toBe(0);
 });
 
+test('accepts the redirect new.astro became when the desk moved to /', () => {
+  const dir = fixture({
+    'src/features/desk/index.ts': 'U2FsdGVkX1fixture',
+    'src/pages/new.astro': "---\nexport const prerender = false;\nreturn Astro.redirect('/', 308);\n---\n",
+  });
+  expect(check(dir).status).toBe(0);
+});
+
 for (const [name, content] of Object.entries({
   'src/features/desk/index.ts': 'export const privateSource = true;',
   'src/pages/new.astro': '<main>Private page body</main>',

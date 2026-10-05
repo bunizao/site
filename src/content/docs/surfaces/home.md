@@ -5,11 +5,13 @@ group: Surfaces
 order: 0
 ---
 
-The home page at `/` is a prerendered shell. This page covers each of its
-sections: the component, the data it reads, when it renders, and what the
-client does. Read it before you change a section or its data source.
+The desk has taken `/`. The home page it replaced lives on at `/legacy`, a
+prerendered, `noindex` shell, and still stands at `/` in a clone without the
+desk's key. This page covers each of its sections: the component, the data it
+reads, when it renders, and what the client does. Read it before you change a
+section or its data source.
 
-[`src/pages/index.astro`](https://github.com/bunizao/site/blob/main/src/pages/index.astro) mounts the shared layout, wraps everything in
+[`src/features/home/ui/LegacyHome.astro`](https://github.com/bunizao/site/blob/main/src/features/home/ui/LegacyHome.astro) mounts the shared layout, wraps everything in
 `ParallaxWrapper.astro`, and renders six sections in a fixed order. Runtime-only
 data stays out of the route frontmatter so the page can be served as static
 HTML.

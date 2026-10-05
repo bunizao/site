@@ -14,7 +14,12 @@ const refs = unpublished
 const privatePath = (path) => path.startsWith('src/features/desk/') || /^plans\/desk-.*\.md$/.test(path)
   || /^src\/content\/docs\/.*\.internal\.md$/.test(path);
 const historicalPath = (path) => path.startsWith('public/desk/') || path.startsWith('scripts/brand/') || ['desk-github-week.test.ts', 'desk-audience-listening.test.ts', 'desk-blog-stats.test.ts'].some((name) => path === `tests/unit/${name}`);
-const shell = /^---\s+import \{ DeskPage \} from '@desk';\s+export const prerender = false;\s+if \(!DeskPage\) return Astro.redirect\('\/'\);\s+---\s+<DeskPage \/>\s*$/;
+// The public files src/pages/new.astro has been: the shell that rendered the
+// desk there, then the redirect left when the desk moved to /.
+const shells = [
+  /^---\s+import \{ DeskPage \} from '@desk';\s+export const prerender = false;\s+if \(!DeskPage\) return Astro.redirect\('\/'\);\s+---\s+<DeskPage \/>\s*$/,
+  /^---\s+export const prerender = false;\s+return Astro.redirect\('\/', 308\);\s+---\s*$/,
+];
 let failures = 0;
 
 for (const ref of refs) {
@@ -27,7 +32,7 @@ for (const ref of refs) {
     const blob = execFileSync('git', ['cat-file', 'blob', object], { maxBuffer: 64 * 1024 * 1024 });
     const isEncrypted = blob.subarray(0, 10).equals(Buffer.from('U2FsdGVkX1'));
     if (mixed && !isEncrypted && !blob.includes(Buffer.from('DESK_FAVICON')) && !blob.includes(Buffer.from("describe('desk icons'"))) continue;
-    if (legacy && path === 'src/pages/new.astro' && shell.test(blob.toString('utf8'))) continue;
+    if (legacy && path === 'src/pages/new.astro' && shells.some((shell) => shell.test(blob.toString('utf8')))) continue;
     if (!isEncrypted) {
       console.error(`Plaintext protected blob: ${object}`);
       failures += 1;
