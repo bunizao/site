@@ -918,14 +918,18 @@
   pointer-events: none;
 }
 
-.listening-progress:hover .listening-progress-track,
-.listening-progress:hover .listening-progress-fill,
 .listening-progress:focus-visible .listening-progress-track,
 .listening-progress:focus-visible .listening-progress-fill {
   height: 4px;
 }
 
+/* Gated: a tap leaves :hover stuck on a touch screen. */
 @media (hover: hover) and (pointer: fine) {
+  .listening-progress:hover .listening-progress-track,
+  .listening-progress:hover .listening-progress-fill {
+    height: 4px;
+  }
+
   .listening-progress:hover .listening-progress-thumb {
     transform: translate(-50%, -50%) scale(1);
   }
@@ -933,6 +937,27 @@
 
 .listening-progress:focus-visible .listening-progress-thumb {
   transform: translate(-50%, -50%) scale(1);
+}
+
+/* Held, the bar thickens and shows its thumb, the way a scrubber does under
+   a finger. */
+.listening.is-scrubbing .listening-progress-track,
+.listening.is-scrubbing .listening-progress-fill {
+  height: 6px;
+}
+
+.listening.is-scrubbing .listening-progress-thumb {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* A fingertip needs about 44px; the bar is drawn 18px tall, so under a
+   finger it reaches past its line above and below. */
+@media (pointer: coarse) {
+  .listening-progress::before {
+    content: '';
+    position: absolute;
+    inset: -13px 0;
+  }
 }
 
 /* Cover style — mood audio. No chrome: album-art tile on the left, copy +

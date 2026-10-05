@@ -357,6 +357,10 @@ export const initListeningCards = (root: ParentNode = document): void => {
     window.addEventListener('resize', syncTitleMarquee, { passive: true });
 
     let wasPlaying = false;
+    // While a finger or pointer holds the bar, the bar shows where it is, not
+    // where playback has got to: a held finger must not watch the thumb creep
+    // out from under it.
+    let scrubbing = false;
     // Cover cards seed a total-time label before playback; keep it visible when
     // this card doesn't own the player instead of blanking it out.
     const seededTotal = totalEl?.textContent ?? '';
@@ -377,9 +381,10 @@ export const initListeningCards = (root: ParentNode = document): void => {
         duration,
       });
       const fraction = duration > 0 ? Math.min(1, current / duration) : 0;
+      if (totalEl) totalEl.textContent = duration > 0 ? formatTime(duration) : seededTotal;
+      if (scrubbing) return;
       syncProgress(fraction);
       if (elapsedEl) elapsedEl.textContent = ours ? formatTime(current) : '0:00';
-      if (totalEl) totalEl.textContent = duration > 0 ? formatTime(duration) : seededTotal;
     });
 
     // Draggable seek. Pointer events cover mouse + touch + pen in one path.
@@ -387,14 +392,17 @@ export const initListeningCards = (root: ParentNode = document): void => {
       const seekFromEvent = (event: PointerEvent) => {
         const rect = progress.getBoundingClientRect();
         if (rect.width <= 0) return;
-        const fraction = (event.clientX - rect.left) / rect.width;
+        const fraction = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
         syncProgress(fraction);
         syncRecordRotation(fraction);
         musicKitPlayer.seekFraction(fraction);
+        if (elapsedEl) elapsedEl.textContent = formatTime(fraction * musicKitPlayer.snapshot().duration);
       };
-      let scrubbing = false;
       progress.addEventListener('pointerdown', (event) => {
         if (musicKitPlayer.snapshot().owner !== playbackRequest) return;
+        // The drag is the bar's. Whatever around it reads a sideways drag of
+        // its own (the desk's swipe between sections) leaves this one alone.
+        event.preventDefault();
         scrubbing = true;
         root.classList.add('is-scrubbing');
         progress.setPointerCapture(event.pointerId);
