@@ -282,7 +282,7 @@ test('a pinch-zoom viewport offset cannot move the fixed chrome', async ({ page 
   });
 
   const zones: Array<[string, string[]]> = [
-    ['/', ['.site-nav--home', '.global-header-actions']],
+    ['/legacy', ['.site-nav--home', '.global-header-actions']],
     ['/privacy', ['.site-nav--brand-home', '.global-header-actions', '.site-shell']],
     ['/mood', ['.mood-navbar']],
     ['/blog/demo-effects', ['.toc-topbar', '.blog-shell']],
