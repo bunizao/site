@@ -561,6 +561,12 @@ body:has(.site-nav--docs) .global-header-actions .header-action-btn:hover {
   color: var(--ink-faint);
 }
 
+/* Owner-only page. Same ink as the badge so the rail stays one colour. */
+.docs-nav-lock {
+  flex: none;
+  color: var(--ink-faint);
+}
+
 /* --- On this page ------------------------------------------------------- */
 .docs-toc {
   display: none;

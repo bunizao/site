@@ -175,7 +175,7 @@ Everything else on the URL surface:
 | Surface | Owner | Notes |
 | --- | --- | --- |
 | `api.buxx.me` | `site-api` | Machine ingress for webhooks, notify, image processing, archive reads and ops. It is not the canonical public API host. |
-| Admin, OAuth, webhook, and image routes | `site-api` | Listed without contracts in [Internal Endpoints](/docs/api/internal). |
+| Admin, OAuth, webhook, and image routes | `site-api` | Listed without contracts in the owner-only [Internal endpoints](/docs/api/endpoints). |
 | `/oauth`, `/oauth/*` | `site` → `site-api` | The `site` Worker forwards these to `site-api` over the `API` binding, where the reader sign-in routes live. A bare `/oauth` has no page and returns `404`. `/oauth/login` is answered by `site`: a same-origin redirect to `?next=`, default `/dev/portal`. The `/dev` boundary itself is `src/middleware.ts` + `src/features/admin/server/access.ts`. See [Auth](/docs/platform/auth). |
 | `GET /dev/blog/<24-char post id>` | `site` | A Ghost draft rendered through the production pipeline, behind owner auth. Private and uncached. |
 | `GET`, `HEAD /static/*` | `site` | Allowlisted media proxy, including the fixed YouTube poster, avatar and metadata routes. |

@@ -11,10 +11,12 @@ public endpoints let other sites embed parts of it.
 
 These docs cover the public API (what you can call, what it returns, and how it
 is cached), how to write a post, and how the site and its two Workers are
-built. The one thing left out is the contract of internal routes: admin,
-webhook and cron routes are listed with path, purpose and auth tier only (see
-[Internal Endpoints](/docs/api/internal)). Their request and response shapes
-stay in the private `site-api` repository.
+built. Two things are left out. Admin, webhook and cron routes, and the
+moderation internals (the comment risk stack, its thresholds and the ban
+tooling), are internal pages of this same reference. They are encrypted in the
+public repository and locked in place: the sidebar lists them with a lock, and
+only the owner can open them. Internal request and response shapes stay in the
+private `site-api` repository.
 
 ## Where to start
 

@@ -157,7 +157,7 @@ site.
 ## Dev portal
 
 ```
-ALL /dev                                → 302 /dev/portal
+ALL /dev                                → 302 /dev/portal, or to a locked docs page named by ?next=
 ALL /dev/blog                           → 302 /dev/portal/blog
 GET /dev/portal/api/ghost-posts         → Ghost Admin API post list, answered locally
 GET /dev/portal/api/notify-preview      → site-api /api/notify/preview, params whitelisted
@@ -172,8 +172,9 @@ draw: `analytics/summary`, `analytics/events` and `analytics/article/:slug` (to
 the same paths under site-api's `/api/analytics/`). Request headers, the Access
 JWT included, pass through. Any other path or method, and any path with a `.`
 or `..` segment, gets `404 {"error":"Not found"}` with `no-store`. It is a
-narrow window onto the admin API and not a second general proxy. See
-[Internal Endpoints](/docs/api/internal). In local dev with portal demo mode
+narrow window onto the admin API and not a second general proxy. The admin
+routes are listed in the owner-only
+[Internal endpoints](/docs/api/endpoints). In local dev with portal demo mode
 on, an in-memory demo API answers the same paths instead.
 
 Three static sibling routes take priority over the catch-all, because literal
@@ -204,6 +205,33 @@ or phone width (`?post=<id>&width=phone`). `/dev/blog/*` pages send
 `frame-ancestors 'self'` so that iframe can load them. Every other `/dev` path
 keeps `frame-ancestors 'none'`.
 
+## Locked docs pages
+
+```
+GET /docs/<page>                        → the page for the owner, 401 lock screen for anyone else
+```
+
+A docs page whose source is `<page>.internal.md` keeps its place in `/docs`.
+The sidebar and the docs index list it with a lock, at its own `/docs/<page>`
+URL. It is not a static file like the public pages: the Worker renders it on
+every request and looks for the owner the way the dev portal does, through the
+Cloudflare Access token. Access adds that token as a header only under `/dev`,
+so here it comes from the `CF_Authorization` cookie that signing in sets for
+the whole host.
+
+- The owner gets the page with `200`.
+- Anyone else gets `401` with the rail, the title and a lock, never the body.
+  **Sign in** links to `/dev?next=/docs/<page>`. Access signs the owner in at
+  `/dev`, which redirects back. `next` is honoured only for a `/docs/` path of
+  lowercase letters, digits, `-` and `/`; anything else goes to `/dev/portal`.
+
+Both answers send `Cache-Control: private, no-store, max-age=0` and
+`noindex, nofollow`. Locked pages are left out of the search index and the
+sitemap, have no Markdown alternate, and answer `404` in Markdown. The pager on
+a public page skips them. Their sources are transcrypt-encrypted in the
+repository, so a build without the key has no locked pages and their paths are
+`404`.
+
 ## Static JSON
 
 The build prerenders these files, and the edge serves them as static assets.
@@ -211,7 +239,7 @@ They have no auth, no rate limits, and no query parameters.
 
 | Path | Contents |
 | --- | --- |
-| `/docs/search.json` | The docs search index: every non-draft page's title, description, group, H2/H3 headings, and up to 4000 characters of body text. The docs search dialog fetches the whole file the first time it opens. |
+| `/docs/search.json` | The docs search index: every public, non-draft page's title, description, group, H2/H3 headings, and up to 4000 characters of body text. The docs search dialog fetches the whole file the first time it opens. |
 | `/palette.json` | `{"posts":[{"title","path"}]}`: the four newest blog posts, for the site-wide command palette. It is separate from the page so `/mood` never pays for a Ghost fetch during SSR. |
 | `/r/<name>` and `/r/<name>.json` | Component registry items in the shadcn registry format, so you can install a component from `/components` by URL. Both paths serve the same document; the `.json` variant re-exports the other. Built from the `components` content collection (non-draft entries whose `install.type` is `registry`) plus a generated `utils` item. |
 

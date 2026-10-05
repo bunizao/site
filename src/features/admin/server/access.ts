@@ -8,6 +8,7 @@ import { readOptionalEnv, type RuntimeEnvLocals } from '@/lib/runtime/env';
 import type { AdminSessionIdentity } from './dev-bypass';
 
 const ACCESS_JWT_HEADER = 'cf-access-jwt-assertion';
+const ACCESS_JWT_COOKIE = 'CF_Authorization';
 
 const jwksByTeamDomain = new Map<string, JWTVerifyGetKey>();
 
@@ -83,6 +84,21 @@ function identityFromPayload(
   };
 }
 
+// Access adds the header only on paths its application covers (/dev*). The
+// cookie it sets at sign-in carries the same token to the rest of the host, so a
+// page outside that path, such as a locked docs page, can still tell the owner
+// apart. Both go through the same verification.
+function readAccessToken(request: Request): string | null {
+  const header = request.headers.get(ACCESS_JWT_HEADER)?.trim();
+  if (header) return header;
+
+  for (const pair of request.headers.get('cookie')?.split(';') ?? []) {
+    const [name, ...value] = pair.trim().split('=');
+    if (name === ACCESS_JWT_COOKIE) return value.join('=').trim() || null;
+  }
+  return null;
+}
+
 export async function readCloudflareAccessIdentity(
   request: Request,
   locals: RuntimeEnvLocals | undefined,
@@ -91,7 +107,7 @@ export async function readCloudflareAccessIdentity(
   const config = readCloudflareAccessConfig(locals);
   if (!config) return null;
 
-  const token = request.headers.get(ACCESS_JWT_HEADER)?.trim();
+  const token = readAccessToken(request);
   if (!token) return null;
 
   try {

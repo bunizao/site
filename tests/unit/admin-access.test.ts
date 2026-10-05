@@ -47,6 +47,15 @@ function readIdentity(token: string, env: Record<string, string> = ACCESS_ENV) {
   );
 }
 
+// Outside the Access application's path only the sign-in cookie arrives.
+function readCookieIdentity(cookie: string) {
+  return readCloudflareAccessIdentity(
+    new Request('https://buxx.me/docs/api/endpoints', { headers: { Cookie: cookie } }),
+    { env: ACCESS_ENV },
+    { keyResolver },
+  );
+}
+
 describe('Access JWT gate', () => {
   test('reads an admin identity from a valid Access JWT', async () => {
     expect(await readIdentity(await signAccessToken())).toEqual({
@@ -91,5 +100,17 @@ describe('Access JWT gate', () => {
 
   test('fails closed when Access configuration is missing', async () => {
     expect(await readIdentity(await signAccessToken(), {})).toBeNull();
+  });
+
+  test('reads the identity from the Access cookie when the header is absent', async () => {
+    const identity = await readCookieIdentity(`theme=dark; CF_Authorization=${await signAccessToken()}`);
+    expect(identity?.email).toBe('owner@example.com');
+  });
+
+  test('verifies a cookie token like a header token', async () => {
+    expect(await readCookieIdentity(`CF_Authorization=${await signAccessToken({ audience: 'other-app-aud' })}`))
+      .toBeNull();
+    expect(await readCookieIdentity('CF_Authorization=not-a-jwt')).toBeNull();
+    expect(await readCookieIdentity('CF_Authorization=')).toBeNull();
   });
 });

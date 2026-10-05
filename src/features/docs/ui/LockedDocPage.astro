@@ -1,0 +1,70 @@
+---
+// Every *.internal.md page answers here, at its own /docs/<page> URL;
+// astro.config.mjs injects one route per page. It renders per request so the
+// owner check runs on every hit. Anyone else gets the rail, the title and a
+// lock, never the body.
+import Layout from '@/layouts/Layout.astro';
+import DocsArticle from '@/features/docs/ui/DocsArticle.astro';
+import DocsSidebar from '@/features/docs/ui/DocsSidebar.astro';
+import DocsSearch from '@/features/docs/ui/DocsSearch.astro';
+import { readAdminSession } from '@/features/admin/server/session';
+import { docPath, getDocsNav, isInternalDoc } from '@/features/docs/server/nav';
+import '@/styles/docs.css';
+
+export const prerender = false;
+
+const groups = await getDocsNav({ includeInternal: true });
+const entry = groups
+  .flatMap((group) => group.entries)
+  .find((candidate) => isInternalDoc(candidate) && docPath(candidate.id) === Astro.url.pathname);
+// A draft keeps its route until the next build but is not listed.
+if (!entry) return new Response(null, { status: 404 });
+
+const owner = await readAdminSession(Astro.request, Astro.locals);
+// One URL, two answers, so neither may be stored anywhere.
+Astro.response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+if (!owner) Astro.response.status = 401;
+
+// /dev is behind Access; signing in there sets the cookie this page reads.
+const signInHref = `/dev?next=${docPath(entry.id)}`;
+---
+
+<Layout
+  title={entry.data.title}
+  description={owner ? entry.data.description : 'A locked page in the buxx.me docs.'}
+  url={docPath(entry.id)}
+  robots="noindex, nofollow"
+  markdownAlternate={false}
+  navVariant="docs"
+  containedScroll
+  scrollRestorationKey="docs-scroll"
+>
+  {owner ? (
+    <DocsArticle entry={entry} groups={groups} />
+  ) : (
+    <main class="docs docs--article">
+      <div class="docs-shell docs-shell--article">
+        <DocsSidebar groups={groups} current={entry.id} />
+        <article class="docs-article">
+          <div class="docs-article-head">
+            <p class="docs-eyebrow">
+              <a href="/docs">Docs</a>
+              <span aria-hidden="true">/</span>
+              <span>{entry.data.group}</span>
+            </p>
+          </div>
+          <h1 class="docs-title">{entry.data.title}</h1>
+          <p class="docs-lede">
+            This page is locked. It covers internals the public docs leave out,
+            and only the site owner can read it.
+          </p>
+          <a class="docs-playground-link" href={signInHref} data-astro-prefetch="false">
+            Sign in
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+          </a>
+        </article>
+      </div>
+    </main>
+    <DocsSearch />
+  )}
+</Layout>
