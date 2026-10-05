@@ -18,6 +18,17 @@ const context = {
 } satisfies DirectiveContext;
 
 describe('blog directive transformer', () => {
+  test('reads an English title holding apostrophes and curly quotes as one marker', async () => {
+    const result = await transformPostDirectives(
+      '<p>Body.</p><p>[!title en="“Darling, I Just Don\'t Get It.”"]</p>',
+      context,
+    );
+
+    expect(result.html).toBe('<p>Body.</p>');
+    expect(result.meta).toEqual({ title: [{ en: '“Darling, I Just Don\'t Get It.”' }] });
+    expect(result.warnings).toEqual([]);
+  });
+
   test('defines rich output targets once for every directive handler', () => {
     expect([
       'web',
