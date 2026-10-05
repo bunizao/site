@@ -2,7 +2,7 @@ import { expect, test } from './fixtures';
 
 test.describe('Home motion', () => {
   test('composes native parallax with the section reveal', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.evaluate(() => window.scrollTo({ top: 1000, behavior: 'instant' }));
     await expect.poll(() =>
       page.locator('#experience-section').evaluate((section) => {
@@ -21,7 +21,7 @@ test.describe('Home motion', () => {
   });
 
   test('keeps reveal timing ahead of local interactions', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.evaluate(() => {
       for (const id of ['writing-section', 'moods-section']) {
         document.getElementById(id)?.classList.remove('is-revealed', 'is-settled');
@@ -54,7 +54,7 @@ test.describe('Home motion', () => {
 
   test('disables parallax when reduced motion is requested', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.locator('#writing-section').scrollIntoViewIfNeeded();
 
     await expect.poll(() =>

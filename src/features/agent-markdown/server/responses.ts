@@ -157,7 +157,7 @@ export function isNeverCachePath(pathname: string): boolean {
 // Anything unlisted keeps the probe: a missed skip costs one lookup, a wrong
 // skip would route a static file through the slower adapter fallback. /dev,
 // /api, /oauth and /v2 never probe (see isNeverCachePath in src/worker.ts).
-const SSR_ONLY_PATH = /^\/(?:mood(?:\/(?:embed|rss\.xml|subscribe|\d+))?|reader\/[^/.]+)$/;
+const SSR_ONLY_PATH = /^\/(?:|mood(?:\/(?:embed|rss\.xml|subscribe|\d+))?|reader\/[^/.]+)$/;
 
 export function isSsrOnlyPath(pathname: string): boolean {
   return SSR_ONLY_PATH.test(pathname);

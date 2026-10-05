@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test';
 import { withRequestVary } from '@/features/agent-markdown/server/responses';
 
-let astroResponse = () => new Response('Dynamic page', {
+let astroResponse: (request: Request) => Response = () => new Response('Dynamic page', {
   headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' },
 });
 mock.module('@astrojs/cloudflare/entrypoints/server', () => ({
-  default: { fetch: async () => astroResponse() },
+  default: { fetch: async (request: Request) => astroResponse(request) },
 }));
 const { default: worker } = await import('../../src/worker');
 const context = { waitUntil: () => {} };
@@ -105,6 +105,10 @@ describe('Worker response cache boundary', () => {
             ? Response.json({})
             : new Response('HTML', { headers: { 'Content-Type': 'text/html', Vary: 'Host' } });
         } } };
+        // The home page is server-rendered: Astro answers it, not the assets.
+        astroResponse = (request) => new URL(request.url).hostname === 'bodyless.example'
+          ? new Response(null, { status: 304 })
+          : new Response('HTML', { headers: { 'Content-Type': 'text/html', Vary: 'Host' } });
         const explicitPath = `${path === '/' ? '' : path}/index.md`;
         const responses = [
           await worker.fetch(new Request(`https://buxx.me${path}`, { headers: { Accept: 'text/html' } }), env, context),
@@ -145,14 +149,14 @@ describe('Worker response cache boundary', () => {
     expect(redirect.headers.get('Vary')).toBe(markdown.headers.get('Vary'));
   });
 
-  test('serves a repeat home request from the edge cache without re-rendering', async () => {
+  test('serves a repeat blog index request from the edge cache without re-rendering', async () => {
     let renders = 0;
     const tasks: Promise<unknown>[] = [];
     const env = { ASSETS: { fetch: async () => {
       renders += 1;
-      return new Response('Home', { headers: { 'Content-Type': 'text/html' } });
+      return new Response('Blog', { headers: { 'Content-Type': 'text/html' } });
     } } };
-    const request = new Request('https://host-html.example/');
+    const request = new Request('https://host-html.example/blog');
     const first = await worker.fetch(request, env, { waitUntil: (task) => tasks.push(task) });
     await Promise.all(tasks);
     const second = await worker.fetch(request, env, context);
@@ -212,7 +216,8 @@ describe('Worker response cache boundary', () => {
     expect(response.headers.has('Content-Type')).toBe(false);
     expect(response.headers.get('ETag')).toBe('"asset-v1"');
     expect(varyTokens(response)).toEqual([...vary]);
-    const staleWindow = path.startsWith('/mood') ? 1800 : 86400;
+    // Build-backed pages hold for a day; the live ones (the desk at /, Mood) for 30 minutes.
+    const staleWindow = path === '/' || path.startsWith('/mood') ? 1800 : 86400;
     expect(response.headers.get('Cloudflare-CDN-Cache-Control'))
       .toContain(`stale-while-revalidate=${staleWindow}, stale-if-error=${staleWindow}`);
   });

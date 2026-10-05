@@ -6,8 +6,8 @@ order: 2
 ---
 
 Mood is the stream of short posts mirrored from Telegram. It has three levels:
-`L0` is the preview on the home page, `L1` is the feed at `/mood`, and `L2` is
-one post at `/mood/[id]`. This page covers `L1`, `L2`, and the embed, RSS and
+`L0` is the preview on the legacy home page, `L1` is the feed at `/mood`, and
+`L2` is one post at `/mood/[id]`. This page covers `L1`, `L2`, and the embed, RSS and
 subscribe routes. For `L0`, see [Home](/docs/surfaces/home). For the HTTP
 contracts, see [Mood API](/docs/api/mood).
 

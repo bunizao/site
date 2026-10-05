@@ -106,7 +106,7 @@ when reduced motion is set.
 A page with a theme control of its own dispatches a `theme:set` event on
 `document`, with `light`, `dark`, or `system` as its `detail`. The script
 stores the setting and runs the same transition, without the dropdown's click
-sound. The desk's lamp at `/new` switches the theme this way. It also
+sound. The desk's lamp at `/` switches the theme this way. It also
 replaces the wipe with a crossfade, because it keeps both of its paintings
 ready.
 

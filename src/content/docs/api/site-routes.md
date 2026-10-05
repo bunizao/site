@@ -14,12 +14,17 @@ Knowing the split helps when you debug. A `404` from `/static/…` and a `404`
 from `/api/…` come from different deploys, and only one of them is in this
 repository. See [who answers a request](/docs/api/overview#who-answers-a-request).
 
-## Optional page
+## Home page
 
-`GET /new` renders the optional surface when its source is unlocked at build
-time. In a clone or preview without the key it returns a `302` to `/`.
-The root home is unchanged. Imported assets from the encrypted directory are
-absent from locked builds; the former `/desk/*` public asset paths are removed.
+`GET /` renders the desk when its source is unlocked at build time, and the
+legacy home in a clone or preview without the key. It is server-rendered in
+both, from sources none of which are per visitor, so it is public for 5
+minutes (`s-maxage=300`, `stale-while-revalidate=1800`); a desk that could not
+read the mood feed is `no-store`. The legacy home is also prerendered at
+`GET /legacy`, marked `noindex` and left out of the sitemap. `GET /new`, where
+the desk started, returns a `308` to `/`. Imported assets from the encrypted
+directory are absent from locked builds; the former `/desk/*` public asset
+paths are removed.
 
 ## Media proxy
 
@@ -110,7 +115,7 @@ proxy target instead.
 GET /static/github/bunizao/avatar
 ```
 
-Proxies the site account's GitHub picture at 160px, which the desk at `/new`
+Proxies the site account's GitHub picture at 160px, which the desk at `/`
 shows on its GitHub panel. The login is an allowlist (`bunizao`, as on
 [GitHub contributions](/docs/api/content#github-contributions)); any other
 login, a query string, or a direct `avatars.githubusercontent.com` target

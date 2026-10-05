@@ -1,3 +1,2 @@
-import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
-
-export const DeskPage = null as AstroComponentFactory | null;
+// Without the desk's key, the legacy home stands at / in its place.
+export { default as HomePage } from './home/ui/LegacyHome.astro';

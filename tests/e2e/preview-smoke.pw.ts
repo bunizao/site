@@ -6,7 +6,7 @@ test.describe('Preview smoke', () => {
   });
 
   test('renders the home page shell', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/legacy');
 
     await expect(page.locator('[data-hero-name]')).toBeVisible();
     await expect(page.locator('#projects-section')).toBeVisible();

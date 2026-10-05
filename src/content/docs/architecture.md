@@ -39,7 +39,7 @@ it also supplies the freshness-sensitive comments and reactions.
 
 | Directory | What's in it |
 | --- | --- |
-| `src/pages/` | File-based routing: `index.astro` (home), `mood.astro` (feed shell and route bootstrap), `mood/[id].astro` (detail shell and route bootstrap), `mood/embed.astro` (embeddable widget), and `dev/blog/[id].astro` (authenticated Ghost draft preview). |
+| `src/pages/` | File-based routing: `index.astro` (home: the desk, or the legacy home without the desk's key), `legacy.astro` (the legacy home), `new.astro` (redirect to `/`), `mood.astro` (feed shell and route bootstrap), `mood/[id].astro` (detail shell and route bootstrap), `mood/embed.astro` (embeddable widget), and `dev/blog/[id].astro` (authenticated Ghost draft preview). |
 | `src/pages/api/` | A thin catch-all proxy that falls back to `site-api`. The concrete API implementations live in the private `site-api` repo. |
 | `src/pages/dev/` | The owner's dev portal and Ghost draft preview, behind Cloudflare Access, plus a narrow `/dev/portal/api/*` proxy to the `site-api` admin API. The portal is one client app: `dev/portal/[...path].astro` mounts it from `src/features/portal/`. |
 | `src/pages/oauth*` | `/oauth` and `/oauth/*` forward to `site-api` over the `API` binding (reader sign-in lives there). `/oauth/login` is answered here. |

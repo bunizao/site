@@ -1,0 +1,138 @@
+---
+// The home page before the desk took its place, kept whole at /legacy. A
+// clone without the desk's key builds it at / as well (src/pages/index.astro).
+import Layout from '@/layouts/Layout.astro';
+import Hero from '@/features/home/ui/Hero.astro';
+import GlyphField from '@/features/home/ui/GlyphField.astro';
+import ParallaxWrapper from '@/features/home/ui/ParallaxWrapper.astro';
+import Experience from '@/features/home/ui/Experience.astro';
+import Projects from '@/features/home/ui/Projects.astro';
+import Posts from '@/features/home/ui/Posts.astro';
+import HomePreview from '@/features/mood/ui/HomePreview.astro';
+import Footer from '@/features/home/ui/Footer.astro';
+import { profileJsonLd, siteDescription, websiteJsonLd } from '@/lib/seo';
+import { meta, sections } from '@/data/site';
+import '@/styles/home-type.css';
+import '@/styles/home-surface.css';
+import '@/styles/home-reveal.css';
+
+interface Props {
+  url?: string;
+  robots?: string;
+}
+
+const { url = '/', robots } = Astro.props;
+const title = meta.homeTitle;
+const description = siteDescription;
+const isHomeDevSurface = process.env.DEV_SURFACE === 'home';
+---
+
+<Layout
+  title={title}
+  description={description}
+  url={url}
+  robots={robots}
+  navVariant="home"
+  structuredData={[websiteJsonLd, profileJsonLd]}
+>
+  <ParallaxWrapper>
+    <GlyphField />
+    <main class="page-container">
+      {sections.hero && <Hero />}
+      {sections.projects && <Projects />}
+      {sections.experience && <Experience />}
+      {sections.posts && <Posts />}
+      {sections.mood && <HomePreview runtimeDisabled={isHomeDevSurface} />}
+      {sections.footer && <Footer />}
+    </main>
+  </ParallaxWrapper>
+</Layout>
+
+<style>
+  /* The glyph field is the hero's texture, so the site-wide dot lattice and
+     its pointer spotlight fade in only below it. Both layers are fixed, so the
+     fade edge is a viewport coordinate: the field script keeps `--field-edge`
+     at the band's bottom minus the scroll offset, and it reaches 0 once the
+     band has scrolled away. Page-scoped on purpose: every other page keeps
+     both layers unmasked. */
+  :global(body::before),
+  :global(.spotlight-overlay) {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent calc(var(--field-edge, 0px) - 220px),
+      #000 var(--field-edge, 0px)
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent calc(var(--field-edge, 0px) - 220px),
+      #000 var(--field-edge, 0px)
+    );
+  }
+
+  /* The spotlight below the band lights the lattice in the session's ink, so
+     the pointer carries one colour from the rain onto the dots. */
+  :global(.spotlight-overlay__grid) {
+    background-image: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--glyph-ink, hsl(var(--foreground))) 85%, transparent) 1.15px,
+      transparent 1.15px
+    );
+  }
+
+  /* The homepage ground carries a trace of cool grey instead of pure white and
+     near-black: the field's inks sit on it without the ground fighting them,
+     and the step to every other page is under 1% lightness, so navigation
+     shows no seam. */
+  :global(body) {
+    --background: 220 20% 98.4%;
+  }
+
+  :global(html.dark body) {
+    --background: 225 12% 4.6%;
+  }
+
+  .page-container {
+    /* Homepage code labels are below the fold; reuse the already-preloaded mono face here. */
+    --font-code: var(--font-mono);
+    /* 720 - 2 x 24 = 672 = 28 cells of the 24px lattice, so both edges of the
+       column sit on a dot and the text shares the field's module. */
+    padding-inline: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* No `content-visibility` on the sections. They measure 284-629px against a
+     720px reservation, so every one of them collapsed the document by hundreds
+     of pixels as it materialised — the scroll position got clamped mid-gesture
+     and reveal triggers were left pointing at stale offsets. The sections are
+     small enough that skipping their layout was never worth that. The footer
+     keeps it: it is last, so a late size correction has nothing below it to
+     disturb. The reservation is the content box only (padding is added on
+     top): 127px matches the rendered footer at every width. */
+  :global(.page-container > footer) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 127px;
+  }
+</style>
+
+{/* Arms the reveal before first paint, so the hidden state is never painted
+    visible and then snapped away. The timer is the failsafe: if the reveal
+    module never claims the page, the hide is lifted and the content appears
+    anyway. See src/lib/home-reveal.ts. */}
+<script is:inline>
+  document.documentElement.classList.add('reveal-ready');
+  setTimeout(function () {
+    if (!document.documentElement.dataset.revealActive) {
+      document.documentElement.classList.remove('reveal-ready');
+    }
+  }, 1500);
+</script>
+
+<script>
+  import { initHomeReveal } from '@/lib/home-reveal';
+
+  // Runs as soon as the DOM is parsed. The old chain waited on `window.load`,
+  // which Safari holds until every lazy image and poster settles — sections sat
+  // at opacity 0 for seconds before their reveal could even be scheduled.
+  initHomeReveal();
+</script>

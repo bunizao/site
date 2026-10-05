@@ -5,7 +5,7 @@ const { defaultBrowserType: _defaultBrowserType, ...iphone13 } = devices['iPhone
 
 test.describe('Home publication wordmark', () => {
   test('loads the shared lockup without viewport overflow', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const portal = page.locator('#writing-section .writing-portal');
     const wordmark = portal.locator('[data-site-wordmark-variant="home"]');
@@ -27,7 +27,7 @@ test.describe('Home publication wordmark', () => {
 
   test('removes lockup motion when reduced motion is requested', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const wordmark = page.locator('#writing-section [data-site-wordmark]');
     await wordmark.scrollIntoViewIfNeeded();
@@ -36,7 +36,7 @@ test.describe('Home publication wordmark', () => {
   });
 
   test('doorway wake follows hover and keyboard focus', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/legacy');
     // The rule is which state hover and focus select, not the 1.05s easing.
     await page.addStyleTag({
       content: '.site-wordmark__wake{transition:none!important;animation:none!important}',
@@ -65,7 +65,7 @@ test.describe('Home publication wordmark on touch', () => {
   test.use(iphone13);
 
   test('follows the writing link on the first tap', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const portal = page.locator('#writing-section .writing-portal');
     await Promise.all([

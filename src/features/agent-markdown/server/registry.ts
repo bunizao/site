@@ -43,6 +43,10 @@ export const MOOD_FEED_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_DETAIL_PAGE_CACHE_TTL_SECONDS = 300;
 export const MOOD_DETAIL_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 export const MOOD_EMBED_CACHE_TTL_SECONDS = 300;
+// The home page is the desk, rendered per request from live sources (the mood
+// feed, snapshots), none of them per visitor.
+export const HOME_PAGE_CACHE_TTL_SECONDS = 300;
+export const HOME_PAGE_STALE_WHILE_REVALIDATE_SECONDS = 1800;
 // Prerendered pages and build-generated Markdown only change on deploy, and
 // both cache layers start cold on every deploy (Workers Cache keys by Worker
 // version; the in-worker key carries the build ID). A short platform TTL would
@@ -522,7 +526,12 @@ export function getContentRoutePolicy(pathname: string): ContentRoutePolicy | nu
   const normalized = normalizePathname(pathname);
 
   if (normalized === '/') {
-    return buildBackedPolicy({ edgeCacheHtml: true });
+    return {
+      cacheTtlSeconds: HOME_PAGE_CACHE_TTL_SECONDS,
+      cacheStaleWhileRevalidateSeconds: HOME_PAGE_STALE_WHILE_REVALIDATE_SECONDS,
+      edgeCacheHtml: false,
+      cacheHeaderName: EDGE_CACHE_HEADER,
+    };
   }
   if (normalized === '/privacy') {
     return buildBackedPolicy({ edgeCacheHtml: false, sharedCacheTtlSeconds: 3600 });

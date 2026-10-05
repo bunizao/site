@@ -37,7 +37,7 @@ describe('variant edge cache', () => {
     expect(contentEdgeCacheVersion('/mood/embed', 'deploy-a')).not.toBe(
       contentEdgeCacheVersion('/mood/embed', 'deploy-b'),
     );
-    expect(getContentRoutePolicy('/')?.edgeCacheHtml).toBe(true);
+    expect(getContentRoutePolicy('/blog')?.edgeCacheHtml).toBe(true);
   });
 
   test('builds separate keys for html and markdown variants', () => {
@@ -242,7 +242,7 @@ describe('variant edge cache', () => {
   });
 
   test('strips positive readiness before cache storage and client responses', async () => {
-    const request = new Request('https://ready.example/');
+    const request = new Request('https://ready.example/blog');
     const outgoing = await cacheHtmlPageResponse(request, new Response('Ready', {
       headers: { 'Content-Type': 'text/html', 'X-Buxx-Cache-Ready': '1' },
     }));

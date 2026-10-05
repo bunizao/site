@@ -6,7 +6,7 @@ const homeMoodFeedRoute = /\/api\/(?:moods|v2\/mood)(?:\?|$)/;
 
 test.describe('Performance diagnostics', () => {
   test('loads only when requested and exposes an agent-readable snapshot', async ({ page }) => {
-    await page.goto('/?debug=performance', { waitUntil: 'domcontentloaded' });
+    await page.goto('/legacy?debug=performance', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-performance-debug]')).toBeAttached();
     await expect.poll(() => page.evaluate(() => Boolean(window.__BUXX_PERF_DEBUG__))).toBe(true);
 
@@ -18,7 +18,7 @@ test.describe('Performance diagnostics', () => {
     }));
     expect(snapshot?.records.some((record) => record.kind === 'panel')).toBe(true);
 
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/legacy', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-performance-debug]')).toHaveCount(0);
     expect(await page.evaluate(() => Boolean(window.__BUXX_PERF_DEBUG__))).toBe(false);
   });
@@ -171,7 +171,7 @@ test.describe('Home page', () => {
       }).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const decodeRoot = page.locator('[data-hero-bio] [data-decode-root]');
     await expect(decodeRoot).toHaveClass(/dt-prepared/, { timeout: 4_000 });
@@ -196,7 +196,7 @@ test.describe('Home page', () => {
   });
 
   test('renders the home sections with links into the blog', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/legacy');
 
     await expect(page).toHaveTitle('Lucian Bu — Student, Developer & Blogger');
     await expect(page.locator('[data-hero-name]')).toBeVisible();
@@ -238,7 +238,7 @@ test.describe('Home page', () => {
 
   test('releases the spotlight compositor layer after its idle fade', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const spotlight = page.locator('[data-spotlight-overlay]');
     await page.mouse.move(180, 180);
@@ -248,7 +248,7 @@ test.describe('Home page', () => {
 
   test('bounds active project carousel images and accessible alternatives', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const projects = page.locator('#projects-section');
     await projects.scrollIntoViewIfNeeded();
@@ -286,7 +286,7 @@ test.describe('Home page', () => {
     // The fake clock still flows in real time; fastForward skips the 1s
     // entrance and the 5.5s advance instead of sleeping through them.
     await page.clock.install();
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const projects = page.locator('#projects-section');
     const deck = projects.locator('[data-project-stack="hydrated"]');
@@ -350,7 +350,7 @@ test.describe('Home page', () => {
   });
 
   test('keeps runtime home data out of the initial HTML', async ({ page }) => {
-    const response = await page.request.get('/');
+    const response = await page.request.get('/legacy');
     expect(response.ok()).toBeTruthy();
 
     const html = await response.text();
@@ -362,7 +362,7 @@ test.describe('Home page', () => {
   });
 
   test('home HTML advertises the pixel logo and never requests JetBrains Mono up front', async ({ page }) => {
-    const response = await page.request.get('/');
+    const response = await page.request.get('/legacy');
     expect(response.ok()).toBeTruthy();
 
     const html = await response.text();
@@ -382,7 +382,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.locator('#moods-section').scrollIntoViewIfNeeded();
 
     await waitForHomeMoodState(page);
@@ -430,7 +430,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.locator('#moods-section').scrollIntoViewIfNeeded();
 
     await waitForHomeMoodState(page);
@@ -484,7 +484,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.locator('#moods-section').scrollIntoViewIfNeeded();
 
     await waitForHomeMoodState(page);
@@ -533,7 +533,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.locator('#moods-section').scrollIntoViewIfNeeded();
 
     await expect
@@ -638,7 +638,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const section = page.locator('[data-contributions]');
     await expect(section).toHaveAttribute('aria-busy', 'false', { timeout: 4_000 });
@@ -689,7 +689,7 @@ test.describe('Home page', () => {
     });
 
     await page.setViewportSize({ width: 741, height: 957 });
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const track = page.locator('[data-listening-link]');
     const title = page.locator('[data-listening-title]');
@@ -779,7 +779,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
 
     await expect.poll(() => v2Requests).toBeGreaterThan(0);
     await expect(page.locator('[data-listening-title-label]')).toHaveText('Loading track');
@@ -856,7 +856,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
     await expect.poll(() => v2Requests).toBeGreaterThan(0);
 
     await page.evaluate(() => {
@@ -941,7 +941,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const root = page.locator('[data-listening]');
     const playButton = page.locator('[data-listening-play]');
@@ -973,7 +973,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const playButton = page.locator('[data-listening-play]');
     const trackLink = page.locator('[data-listening-link]');
@@ -1000,7 +1000,7 @@ test.describe('Home page', () => {
       await route.abort('failed');
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const section = page.locator('[data-contributions]');
     await expect(section).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
@@ -1020,7 +1020,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.locator('#moods-section').scrollIntoViewIfNeeded();
 
     await expect(page.locator('#moods-section [data-mood-empty]')).toBeVisible({ timeout: 30_000 });
@@ -1037,7 +1037,7 @@ test.describe('Home page', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.locator('#moods-section').scrollIntoViewIfNeeded();
 
     await expect(page.locator('#moods-section [data-mood-error]')).toBeVisible({ timeout: 30_000 });
@@ -1047,7 +1047,7 @@ test.describe('Home page', () => {
 
   test('keeps mobile navbar spacing stable with the wordmark and menu trigger', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const nav = page.locator('[data-site-nav]');
     const wordmark = page.locator('[data-mobile-brand-text]');
@@ -1191,7 +1191,7 @@ test.describe('Blog posts', () => {
 
 test.describe('Home page mobile touch', () => {
   test('shows every experience row without a veil', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/legacy');
     await page.locator('#experience-section').scrollIntoViewIfNeeded();
     await expect(page.locator('[data-experience-timeline="static"]')).toHaveCount(1);
 
@@ -1290,9 +1290,9 @@ test.describe('Footer edge popover', () => {
     });
   }
 
-  // The home page paints the footer directly; the blog nests it in a scroll
+  // The legacy home page paints the footer directly; the blog nests it in a scroll
   // container. The popover renders in the top layer, so neither can crop it.
-  for (const path of ['/', '/blog']) {
+  for (const path of ['/legacy', '/blog']) {
     test(`paints every row clear of the footer box on ${path}`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -1343,7 +1343,7 @@ test.describe('Footer edge popover', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await stubEdge(page);
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const trigger = page.locator('[data-footer-region-trigger]');
     const pop = page.locator('[data-footer-edge-pop]');
@@ -1386,7 +1386,7 @@ test.describe('Footer edge popover', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await stubEdge(page);
-    await page.goto('/');
+    await page.goto('/legacy');
 
     const trigger = page.locator('[data-footer-region-trigger]');
     const pop = page.locator('[data-footer-edge-pop]');
