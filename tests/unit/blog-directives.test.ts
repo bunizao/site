@@ -38,6 +38,7 @@ describe('blog directive transformer', () => {
       { name: 'mood', kind: 'block' },
       { name: 'music', kind: 'block' },
       { name: 'authors', kind: 'meta' },
+      { name: 'title', kind: 'meta' },
       { name: 'youtube', kind: 'block' },
     ]);
 

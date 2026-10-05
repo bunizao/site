@@ -203,6 +203,55 @@ describe('posts content provider', () => {
     }
   });
 
+  test('reads the English title marker before rendering and keeps it out of derived text', async () => {
+    useMockGhostContent();
+    const record = mockPosts.find((post) => post.slug === 'demo-effects');
+    expect(record).toBeDefined();
+    if (!record) return;
+
+    const originalContent = {
+      html: record.html,
+      excerpt: record.excerpt,
+      plaintext: record.plaintext,
+    };
+    const carrier = '[!title en="Tides & the Letters Back"]';
+    record.html = '<p>[!title en="Tides &amp; the Letters Back"]</p><p>Article body.</p>';
+    record.excerpt = `${carrier}\nArticle body.`;
+    record.plaintext = `${carrier}\n\nArticle body.`;
+    resetPostsProviderForTests();
+
+    try {
+      const rawPost = await getPostBySlug(record.slug);
+      const post = await getPostBySlug(record.slug, { outputTarget: 'web' });
+
+      expect(rawPost?.titleEn).toBe('Tides & the Letters Back');
+      expect(rawPost?.excerpt).toBe('Article body.');
+      expect(rawPost?.plaintext).toBe('Article body.');
+      expect(post?.html).toBe('<p>Article body.</p>');
+    } finally {
+      Object.assign(record, originalContent);
+      resetPostsProviderForTests();
+    }
+  });
+
+  test('ignores a title marker without an English value', async () => {
+    useMockGhostContent();
+    const record = mockPosts.find((post) => post.slug === 'demo-effects');
+    expect(record).toBeDefined();
+    if (!record) return;
+
+    const originalHtml = record.html;
+    record.html = '<p>[!title en=""]</p><p>Article body.</p>';
+    resetPostsProviderForTests();
+
+    try {
+      expect((await getPostBySlug(record.slug))?.titleEn).toBeUndefined();
+    } finally {
+      record.html = originalHtml;
+      resetPostsProviderForTests();
+    }
+  });
+
   test('fails production builds instead of silently shipping mock posts without Ghost config', async () => {
     delete process.env.PUBLIC_GHOST_URL;
     delete process.env.GHOST_CONTENT_API_KEY;

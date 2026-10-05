@@ -12,7 +12,7 @@ import {
   groupPostsByYear,
 } from '@/features/posts/server/content';
 import { writingLedger } from '@/features/posts/ledger';
-import { mapOtherLanguages } from '@/features/posts/i18n';
+import { mapEnglishTitles, mapOtherLanguages } from '@/features/posts/i18n';
 import Footer from '@/features/home/ui/Footer.astro';
 import { blog } from '@/data/site';
 
@@ -29,6 +29,7 @@ const groups = groupPostsByYear(listedPosts);
 const ledger = writingLedger(listedPosts);
 // One pass for the whole page: a row cannot see its own siblings.
 const otherLanguages = mapOtherLanguages(accessiblePosts);
+const englishTitles = mapEnglishTitles(accessiblePosts);
 const rank = new Map(listedPosts.map((post, i) => [post.slug, i]));
 const folded = (slug: string) => (rank.get(slug) ?? 0) >= BATCH;
 const earlier = blog.copy[blog.locale.blog].earlier;
@@ -50,7 +51,7 @@ const earlier = blog.copy[blog.locale.blog].earlier;
       <h2 class="blog-year__heading">{group.year}</h2>
       <ul class="blog-list">
         {group.posts.map((post) => (
-          <PostRow post={post} otherLanguages={otherLanguages.get(post.slug)} hidden={folded(post.slug)} />
+          <PostRow post={post} englishTitle={englishTitles.get(post.slug)} otherLanguages={otherLanguages.get(post.slug)} hidden={folded(post.slug)} />
         ))}
       </ul>
     </section>

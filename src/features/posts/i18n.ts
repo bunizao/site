@@ -217,3 +217,28 @@ export function mapOtherLanguages(posts: Post[]): Map<string, string[]> {
 
   return byPost;
 }
+
+// English title shown under each row's own title, keyed by slug. A post's own
+// `[!title en]` wins over its English translation's title: the marker is the
+// more deliberate act, and "I wrote it, why isn't it showing?" is the worse
+// surprise. Posts already written in English get none.
+export function mapEnglishTitles(posts: Post[]): Map<string, string> {
+  const translated = new Map<string, string>();
+
+  for (const post of posts) {
+    if (isTranslation(post) && getPostLocale(post) === 'en') {
+      translated.set(getCanonicalSlug(post), post.title);
+    }
+  }
+
+  const byPost = new Map<string, string>();
+
+  for (const post of posts) {
+    if (getPostLocale(post) === 'en') continue;
+
+    const title = post.titleEn ?? translated.get(getCanonicalSlug(post));
+    if (title) byPost.set(post.slug, title);
+  }
+
+  return byPost;
+}

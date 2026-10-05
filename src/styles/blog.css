@@ -258,6 +258,18 @@ html[data-theme-setting='system'] .blog-theme-toggle [data-blog-icon='system'] {
   transition: color 0.3s ease;
 }
 
+/* The English title: a second voice of the headline, quieter than it and
+   never competing with the excerpt below. Outside the h2, so the title morph
+   carries the original only. */
+.blog-row__title-en {
+  margin-top: 1px;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  color: var(--blog-muted);
+}
+
 .blog-row__excerpt {
   margin-top: 5px;
   font-size: 15px;
