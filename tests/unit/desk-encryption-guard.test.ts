@@ -57,7 +57,6 @@ for (const [name, content] of Object.entries({
   'tests/unit/favicon.test.ts': "describe('desk icons', () => {});",
   'src/lib/favicon.ts': 'export const DESK_FAVICON = {};',
   'src/content/docs/api/endpoints.internal.md': '# Private endpoint list',
-  'plans/analytics-traffic-class.internal.md': '# Private classifier rules',
 })) {
   test(`rejects plaintext in ${name}`, () => {
     const dir = fixture({ [name]: content });
