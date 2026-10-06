@@ -12,7 +12,7 @@ const refs = unpublished
   ? execFileSync('git', ['rev-list', target, '--not', '--remotes'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
   : [staged ? ':' : target];
 const privatePath = (path) => path.startsWith('src/features/desk/') || /^plans\/desk-.*\.md$/.test(path)
-  || /^src\/content\/docs\/.*\.internal\.md$/.test(path);
+  || /^src\/content\/docs\/.*\.internal\.md$/.test(path) || /^plans\/.*\.internal\.md$/.test(path);
 const historicalPath = (path) => path.startsWith('public/desk/') || path.startsWith('scripts/brand/') || ['desk-github-week.test.ts', 'desk-audience-listening.test.ts', 'desk-blog-stats.test.ts'].some((name) => path === `tests/unit/${name}`);
 // The public files src/pages/new.astro has been: the shell that rendered the
 // desk there, then the redirect left when the desk moved to /.
