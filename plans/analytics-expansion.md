@@ -6,6 +6,21 @@ mood". They expected D1 to run out after the expansion and asked whether to
 move to PlanetScale, or to a self-owned stack that does not depend on
 Cloudflare's edge services. Status: **discussion**, nothing built.
 
+## Decisions
+
+- **Stay inside the Cloudflare ecosystem, on the Free plan.** No Workers Paid
+  ("我不想上 worker paid"), no outside database, no third-party analytics SaaS
+  for now (2026-10-07).
+- **PostHog is deferred, not rejected** ("posthog 还是推迟一下吧"). It was the
+  pick among hosted tools: free tier of 1M events/month with 1-year retention,
+  versus Umami Cloud's 100k events/month with 6 months. Revisit it if
+  hand-built dashboards stop keeping up.
+- **Postgres is rejected for this workload.** The limit is D1's Free quota,
+  not SQLite. The free Postgres tiers are tighter: Neon gives 0.5 GB and 100
+  CU-hours a month, and beacons arriving all day keep its compute awake, so
+  0.25 CU always on is ~180 CU-hours. Supabase gives 500 MB and is reached
+  through Hyperdrive (Free: 100k queries/day) with an extra network hop.
+
 ## Where analytics stands today
 
 | Stream | Surface | Storage | Volume (2026-10-07) |
@@ -72,26 +87,38 @@ Why not PlanetScale:
 - It solves a write-volume problem this site does not have, and leaves the
   real problem (unbounded reads) in place.
 
-If D1 ever does run short, the next step in order:
+The rollups matter more on Free than they would on Paid: the 10 ms CPU cap
+stays, so the portal must never aggregate raw rows in the Worker.
 
-1. **Workers Paid, $5/month.** D1 includes 50M rows written per month and
-   25B read, and the 10 ms CPU cap goes away. Zero migration, and it also
-   fixes the 1102s on `/mood`.
-2. **Workers Analytics Engine** for raw events (Free: 100k data points/day;
-   adaptive sampling, ~90-day retention, append-only), with D1 keeping the
-   rollups. Only worth it at millions of events a day; the upsert-per-view
-   model would have to become one final event per view.
+If D1 ever does run short, the escape hatch stays on the Free plan:
+**Workers Analytics Engine** for raw page views, D1 for rollups.
 
-## "Self-owned" versus Cloudflare
+- Free: 100k data points written and 10k read queries a day, ~3-month
+  retention, queried through the SQL API with an Account Analytics Read token.
+  Writes cost no D1 rows at all.
+- It is append-only, so a page view becomes one data point per beacon, and
+  queries take `max()` per view id. The daily cron reads yesterday from the
+  SQL API and writes the rollups to D1, which is also how data outlives the
+  3-month retention.
+- Trigger: analytics writes above ~30k D1 rows/day for a week (30% of the
+  account allowance), read from the existing hourly D1 budget check.
+- Not before then. Two stores, a token and a cron for 360 views a day is
+  complexity with no payoff, and D1 gives exact numbers.
+
+To keep that move cheap, every write goes through one `recordPageView()` /
+`recordAction()` pair in site-api. Swapping the store is then a change to two
+functions, with no contract or beacon change.
+
+## The edge-injected scripts
 
 The source of truth is already self-owned: a first-party beacon writing to the
 site's own database. What depends on Cloudflare's edge is the two injected
 scripts, and those are worth questioning:
 
 - **Cloudflare Web Analytics**: today the only whole-site page-view count and
-  the only field Web Vitals source. Once first-party covers every surface it
-  becomes a duplicate. Keep it for 30 days as a cross-check, then switch it off
-  or keep it for Web Vitals only (see open questions).
+  the only field Web Vitals source. It is inside the ecosystem and costs
+  nothing, so it stays: the cross-check for first-party counts, and the Web
+  Vitals source, which the beacon does not duplicate.
 - **Google Tag Gateway**: the data lives in Google, GA4 anonymises IPs, and
   GTM is one of the measured page costs (perf baseline 2026-09). If nobody
   opens the GA4 console, switch it off.
@@ -209,13 +236,13 @@ Ship the action list above, then the RSS counter if wanted.
 
 Portal analytics gets a surface switcher (Overview / Mood / Blog / Home), a
 funnel strip (view → subscribe open → submit → confirmed), and a
-first-party versus Cloudflare RUM comparison line for the 30-day overlap.
+first-party versus Cloudflare RUM comparison line per surface.
 
-### Phase 5 — decide the edge scripts
+### Phase 5 — reconcile
 
-After 30 days of overlap, compare daily page views per surface with Cloudflare
-RUM. If they agree within the expected gap (bots, CI runner, blocked
-beacons), switch off what the open questions settle.
+After 30 days, compare daily page views per surface with Cloudflare RUM. A
+steady gap (bots, the CI runner, blocked beacons) is expected; a gap that
+moves means a surface is missing its beacon. Decide Google Tag Gateway then.
 
 ## Retention
 
@@ -229,11 +256,7 @@ that by eight. Proposal: null `ip`, `city`, `ua` and `as_org` after 90 days
 1. Retention: is 90 days for IP-level fields and 13 months for raw rows right?
 2. Search: store the query text, a hash, or only result counts?
 3. Google Tag Gateway: is anyone reading GA4? If not, switch it off.
-4. Cloudflare Web Analytics after the overlap: off, or kept for Web Vitals?
-   The alternative is first-party Web Vitals, sampled at ~10%.
-5. Honour Global Privacy Control / DNT by not sending the beacon?
-6. Is Workers Paid ($5/month) acceptable as the escape hatch, before any
-   other database is considered?
-7. `docs/api/analytics.md` says a `204` can mean "the site already wrote its
+4. Honour Global Privacy Control / DNT by not sending the beacon?
+5. `docs/api/analytics.md` says a `204` can mean "the site already wrote its
    daily share of reading events", but `origin/main` of site-api has no such
    cap. Verify against the deployed version and fix the doc or the code.
