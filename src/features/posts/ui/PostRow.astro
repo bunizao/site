@@ -8,6 +8,8 @@ import { blog } from '@/data/site';
 
 interface Props {
   post: Post;
+  /** The title in English, under the row's own; the page resolves it. */
+  englishTitle?: string;
   /**
    * Endonyms of the other languages this post exists in. Empty for the vast
    * majority of rows; the listing pages compute it once for the whole page.
@@ -17,7 +19,7 @@ interface Props {
   hidden?: boolean;
 }
 
-const { post, otherLanguages = [], hidden = false } = Astro.props;
+const { post, englishTitle, otherLanguages = [], hidden = false } = Astro.props;
 // The hover preview card renders well under 640px; don't let a hover pull the
 // full-size capture through the image proxy.
 const heroPreview = post.featureImage && post.featureImage.includes('/api/v2/images/blog/')
@@ -57,6 +59,7 @@ const languageMark = otherLanguages.length > 0
       data-vt-name={titleVT}
       style="view-transition-class:post-title"
     >{post.title}</h2>
+    {englishTitle && <p class="blog-row__title-en" lang="en">{englishTitle}</p>}
     {post.excerpt && <p class="blog-row__excerpt">{post.excerpt}</p>}
   </a>
   <p class="blog-row__meta">

@@ -9,7 +9,7 @@ import {
   getTagArchive,
   groupPostsByYear,
 } from '@/features/posts/server/content';
-import { mapOtherLanguages } from '@/features/posts/i18n';
+import { mapEnglishTitles, mapOtherLanguages } from '@/features/posts/i18n';
 import { blog } from '@/data/site';
 
 export const getStaticPaths = (async () => {
@@ -29,9 +29,11 @@ if (!archive) {
 
 const { tag, posts } = archive;
 const groups = groupPostsByYear(posts);
-// Slugs and tags are all mapOtherLanguages reads, so skip the rich-content
+// Slugs, tags and titles are all these maps read, so skip the rich-content
 // render: it would re-render every post once per tag page.
-const otherLanguages = mapOtherLanguages(await getAccessiblePosts());
+const accessiblePosts = await getAccessiblePosts();
+const otherLanguages = mapOtherLanguages(accessiblePosts);
+const englishTitles = mapEnglishTitles(accessiblePosts);
 const accent = tag.accentColor ?? 'var(--blog-accent)';
 ---
 
@@ -56,7 +58,7 @@ const accent = tag.accentColor ?? 'var(--blog-accent)';
       <h2 class="blog-year__heading">{group.year}</h2>
       <ul class="blog-list">
         {group.posts.map((post) => (
-          <PostRow post={post} otherLanguages={otherLanguages.get(post.slug)} />
+          <PostRow post={post} englishTitle={englishTitles.get(post.slug)} otherLanguages={otherLanguages.get(post.slug)} />
         ))}
       </ul>
     </section>

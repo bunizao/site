@@ -10,6 +10,7 @@ import { moodDirective } from './mood';
 import { musicDirective } from './music';
 import { poemDirective } from './poem';
 import { DIRECTIVE_MARKER_RE, DIRECTIVE_PARAGRAPH_RE } from './syntax';
+import { titleDirective } from './title';
 import { youtubeDirective } from './youtube';
 import { isRichDirectiveOutputTarget } from './types';
 import type {
@@ -45,6 +46,7 @@ export const postDirectiveRegistry: readonly Directive[] = Object.freeze([
   moodDirective,
   musicDirective,
   authorsDirective,
+  titleDirective,
   youtubeDirective,
 ]);
 

@@ -1,8 +1,12 @@
+import { load } from 'cheerio';
+
 import { blog } from '@/data/site';
 
 import { createGhostContentProvider } from '../adapter/provider';
 import { getGhostRuntimeConfig } from '../adapter/ghost/config';
-import { findStandaloneDirectiveMarkers } from './directives/syntax';
+import { DirectiveAttributeError } from './directives/attributes';
+import { DIRECTIVE_SOURCE_RE, findStandaloneDirectiveMarkers } from './directives/syntax';
+import { parseTitleAttributes } from './directives/title';
 import { normalizeDirectiveCodeBlocks } from './code-blocks';
 import type {
   DirectiveOutputTarget,
@@ -25,7 +29,9 @@ export interface PostContentOptions {
 }
 
 let provider: ContentProvider | null = null;
-const AUTHORSHIP_SOURCE_NAMES = new Set(['authors']);
+// Meta directives read before the rich render: the listing never runs it, yet
+// needs their values and must not show their markers in an excerpt.
+const META_SOURCE_NAMES = new Set(['authors', 'title']);
 
 // Sanitizing and (when requested) running the Ghost directive/HTML pipeline is
 // the expensive part of serving a post; the same post+outputTarget pair is
@@ -166,17 +172,41 @@ async function transformPostContent(
 }
 
 function sanitizePostDerivedText(post: Post): Post {
-  const normalized = normalizeDirectiveCodeBlocks(post.html, AUTHORSHIP_SOURCE_NAMES);
-  const carriers = findStandaloneDirectiveMarkers(normalized, 'authors');
+  const normalized = normalizeDirectiveCodeBlocks(post.html, META_SOURCE_NAMES);
+  // Ghost escapes text in HTML, so a title marker is decoded before it is read
+  // or matched against the plaintext fields.
+  const titleCarriers = findStandaloneDirectiveMarkers(normalized, 'title')
+    .map((marker) => load(marker, null, false).text());
+  const carriers = [
+    ...findStandaloneDirectiveMarkers(normalized, 'authors'),
+    ...titleCarriers,
+  ];
   if (carriers.length === 0) return post;
+
+  const titleEn = readTitleEn(titleCarriers);
 
   return {
     ...post,
+    ...(titleEn ? { titleEn } : {}),
     markdown: stripStandaloneCarriers(post.markdown, carriers) ?? null,
     excerpt: stripStandaloneCarriers(post.excerpt, carriers) ?? null,
     customExcerpt: stripStandaloneCarriers(post.customExcerpt, carriers) ?? null,
     plaintext: stripStandaloneCarriers(post.plaintext, carriers) ?? '',
   };
+}
+
+// The first valid marker wins. An invalid one is skipped here; the rich render
+// reports it as `invalid-directive-attributes`.
+function readTitleEn(carriers: readonly string[]): string | undefined {
+  for (const carrier of carriers) {
+    try {
+      return parseTitleAttributes(DIRECTIVE_SOURCE_RE.exec(carrier)?.[2]?.trim() ?? '').en;
+    } catch (error) {
+      if (!(error instanceof DirectiveAttributeError)) throw error;
+    }
+  }
+
+  return undefined;
 }
 
 function stripStandaloneCarriers(

@@ -109,6 +109,8 @@ export type PostDirectiveMeta = Record<string, Array<Record<string, string>>>;
 
 export interface PostData extends BaseContentData, Omit<PostRecord, keyof BaseContentRecord> {
   directiveMeta?: PostDirectiveMeta;
+  /** English title from a `[!title en="..."]` marker, read before rendering. */
+  titleEn?: string;
 }
 export type Post = PostData;
 

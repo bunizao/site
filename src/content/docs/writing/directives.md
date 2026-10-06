@@ -45,7 +45,7 @@ Code cards follow their language label:
 | No label, every non-empty line is a registered marker | Each line becomes its own directive, in order. This is the compatibility form. |
 
 A registered marker here is one for a block or meta directive: `mood`, `music`,
-`youtube` or `authors`. Blank lines and spaces around a line are ignored. If any
+`youtube`, `authors` or `title`. Blank lines and spaces around a line are ignored. If any
 line is something else (commentary, an unknown name, or two markers on one
 line), the whole card stays code.
 
@@ -108,9 +108,9 @@ and `youtube` are blocks.
 
 A meta directive is matched the same way but produces no HTML. The build removes
 the paragraph and collects the parsed attributes into `result.meta` under the
-directive name, for the page template to use. `authors` is the only meta
-directive, because the credit belongs in the post footer instead of wherever you
-typed it.
+directive name, for the page template to use. `authors` and `title` are meta
+directives: the credit belongs in the post footer, and the English title in the
+index, instead of wherever you typed them.
 
 A meta marker never renders, so it would otherwise leak into anything built
 from the raw source: the excerpt, the plaintext, the Markdown output. The build
@@ -132,6 +132,7 @@ after all the block directives, so they see the finished document.
 | [`[!music]`](/docs/writing/music) | block | `id` |
 | [`[!youtube]`](/docs/writing/youtube) | block | `id`, `start` |
 | [`[!authors]`](/docs/writing/authors) | meta | `ai`, `note` |
+| [`[!title]`](/docs/writing/title) | meta | `en` |
 | [`[!poem]`](/docs/writing/poem) | inline | *(modifiers, not attributes)* |
 | [`[^label]`](/docs/writing/footnotes) | inline | *(no attributes)* |
 
@@ -147,6 +148,7 @@ export const postDirectiveRegistry: readonly Directive[] = Object.freeze([
   moodDirective,
   musicDirective,
   authorsDirective,
+  titleDirective,
   youtubeDirective,
 ]);
 ```

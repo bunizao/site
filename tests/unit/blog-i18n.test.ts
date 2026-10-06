@@ -6,6 +6,7 @@ import {
   getPostLocale,
   getPostVersions,
   isTranslation,
+  mapEnglishTitles,
   mapOtherLanguages,
   parsePostRoute,
   postRouteSegment,
@@ -214,6 +215,31 @@ describe('selectListedPosts', () => {
       'lun-chenmo',
       'lantern',
     ]);
+  });
+});
+
+describe('mapEnglishTitles', () => {
+  const zh = createPost('lun-chenmo', '论沉默');
+  const en = createPost('on-silence', 'On Silence', ['#en:lun-chenmo']);
+
+  test('borrows the English translation title for the original', () => {
+    const map = mapEnglishTitles([zh, en]);
+
+    expect(map.get('lun-chenmo')).toBe('On Silence');
+    expect(map.has('on-silence')).toBe(false);
+  });
+
+  test('prefers the post\'s own title marker over the translation', () => {
+    const marked = { ...zh, titleEn: 'Of Silence' } as Post;
+
+    expect(mapEnglishTitles([marked, en]).get('lun-chenmo')).toBe('Of Silence');
+  });
+
+  test('gives an English-first post and an unmarked post nothing', () => {
+    const englishFirst = createPost('night-boat', 'Night Boat', ['#en']);
+    const unmarked = createPost('haven', '湾');
+
+    expect(mapEnglishTitles([englishFirst, unmarked]).size).toBe(0);
   });
 });
 
