@@ -250,3 +250,77 @@ export interface BlogAnalyticsArticleDetailResult {
   countries: BlogAnalyticsBreakdown[];
   scrollBuckets: BlogAnalyticsScrollBucket[];
 }
+
+export const SITE_ANALYTICS_COLLECT_ENDPOINT = '/api/analytics/collect' as const;
+export const SITE_ANALYTICS_REPORT_ENDPOINT = '/api/analytics/site' as const;
+export const SITE_ANALYTICS_ENGAGED_DWELL_MS = 10_000;
+export const SITE_ANALYTICS_SESSION_IDLE_MS = 30 * 60_000;
+export const SITE_ANALYTICS_SURFACES = [
+  'home', 'legacy', 'not_found', 'blog_index', 'blog_tags', 'blog_tag', 'blog_post',
+  'mood_feed', 'mood_post', 'mood_embed', 'projects', 'message', 'privacy',
+  'subscribe_manage', 'reader', 'docs', 'components', 'other',
+] as const;
+export type SiteAnalyticsSurface = typeof SITE_ANALYTICS_SURFACES[number];
+export type SiteAnalyticsClickKind = 'link_internal' | 'link_outbound' | 'button' | 'panel';
+export type SiteAnalyticsTrafficClass = 'human' | 'bot' | 'owner';
+export interface SiteAnalyticsClick {
+  name: string; kind: SiteAnalyticsClickKind; href: string; region: string;
+  label: string; position: number; tMs: number;
+}
+export interface SiteAnalyticsCollectInput {
+  v: 1; viewId: string; visitorId: string; sessionId: string; seq: number; owner?: true;
+  page: {
+    surface: SiteAnalyticsSurface; entity: string; path: string; locale: string;
+    referrer: string; utm: [string, string, string];
+  };
+  client: {
+    tz: string; langs: string[]; vw: number; vh: number; dpr: number;
+    navType: 0 | 1 | 2 | 3; isEntry: boolean; isNewVisitor: boolean; webdriver: boolean;
+  };
+  progress: {
+    dwellMs: number; scrollDepth: number; interactions: number; firstInputMs: number;
+    hiddenCount: number; metric1: number; metric2: number;
+  };
+  clicks: SiteAnalyticsClick[];
+}
+export const SITE_ANALYTICS_REPORTS = ['overview', 'pages', 'clicks', 'sources', 'audience', 'quality', 'log', 'visitor'] as const;
+export type SiteAnalyticsReportName = typeof SITE_ANALYTICS_REPORTS[number];
+export interface SiteAnalyticsMetrics {
+  views: number; engaged: number; visitors: number; sessions: number; bounces: number;
+  entries: number; exits: number; reads: number; completions: number; clicks: number;
+  medianDwellMs: number; scrollDepth: number; metric1: number; metric2: number;
+}
+export interface SiteAnalyticsPageRow extends SiteAnalyticsMetrics {
+  day: string; surface: string; entity: string;
+}
+export interface SiteAnalyticsClickRow {
+  day: string; surface: string; entity: string; name: string; href: string;
+  clicks: number; visitors: number; medianTimeMs: number | null; clickThrough: number;
+}
+export interface SiteAnalyticsDimensionRow {
+  day: string; surface: string; dim: string; key: string;
+  views: number; visitors: number; engaged: number; dwellMsSum: number;
+}
+export interface SiteAnalyticsTrafficRow {
+  day: string; surface: string; class: SiteAnalyticsTrafficClass; reason: string;
+  views: number; visitors: number;
+}
+export interface SiteAnalyticsViewRecord {
+  viewId: string; visitorId: string; sessionId: string; startedAt: string; updatedAt: string;
+  class: SiteAnalyticsTrafficClass; reason: string; weight: number;
+  page: SiteAnalyticsCollectInput['page']; client: SiteAnalyticsCollectInput['client'];
+  progress: SiteAnalyticsCollectInput['progress']; clicks: SiteAnalyticsClick[];
+  country: string; region: string; city: string; ip: string; ua: string;
+  browser: string; os: string; device: string; platform: string; network: string;
+  refSource: string; refHost: string; clickCount: number;
+}
+export interface SiteAnalyticsReportResult {
+  report: SiteAnalyticsReportName; from: string; to: string; timezone: 'Australia/Melbourne';
+  sampled: boolean; visitors: number | null;
+  visitorBasis: 'distinct' | 'sampled_distinct' | 'sum_monthly' | 'unavailable';
+  pages: SiteAnalyticsPageRow[]; clicks: SiteAnalyticsClickRow[];
+  dimensions: SiteAnalyticsDimensionRow[]; traffic: SiteAnalyticsTrafficRow[];
+  events: SiteAnalyticsViewRecord[]; nextCursor: string | null;
+  rum: Array<{ surface: string; loads: number }> | null;
+  notices: string[];
+}
