@@ -92,3 +92,12 @@ export const messageCopy: MessageCopy = {
   errorEmailMissing: "Leave an email, or I can't answer",
   errorEmail: "That address doesn't look right",
 };
+
+/** The desk letter's receipts. The envelope already shows it went (shut,
+    sealed, stamped), so these skip the "got it" and say only what happens
+    next, in one short line under it. */
+export const letterReceipts: Pick<MessageCopy, 'sentReplyable' | 'sentVerify' | 'sentAnonymous'> = {
+  sentReplyable: "I'll write back to that address.",
+  sentVerify: 'Confirm it in your inbox and I can write back.',
+  sentAnonymous: "The confirmation didn't go out, so I may not reply. I'll still read it.",
+};
