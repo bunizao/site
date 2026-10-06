@@ -191,6 +191,9 @@ export const initListeningCards = (root: ParentNode = document): void => {
       link?.classList.remove('is-inline');
 
       window.requestAnimationFrame(() => {
+        // A hidden card (a closed desk panel) measures zero everywhere and
+        // would always pass as inline; the observer below lays it out once shown.
+        if (link && !link.parentElement?.clientWidth) return;
         const measuredTitle = titleLabel instanceof HTMLElement ? titleLabel : titleText;
         const measuredArtist = artist instanceof HTMLElement ? artist : null;
         const measuredSeparator = separator instanceof HTMLElement ? separator : null;
@@ -354,7 +357,21 @@ export const initListeningCards = (root: ParentNode = document): void => {
     );
     syncTitleMarquee();
 
-    window.addEventListener('resize', syncTitleMarquee, { passive: true });
+    // The card's own width, not the window's: it also changes when the card
+    // goes from hidden to shown, which no resize event reports. The card, not
+    // the title's row, whose width follows the layout chosen here; and a frame
+    // later, since that layout changes sizes the observer is still delivering.
+    if (typeof ResizeObserver !== 'undefined') {
+      let observedWidth = -1;
+      new ResizeObserver(([entry]) => {
+        const width = Math.round(entry.contentRect.width);
+        if (width === observedWidth) return;
+        observedWidth = width;
+        window.requestAnimationFrame(syncTitleMarquee);
+      }).observe(root);
+    } else {
+      window.addEventListener('resize', syncTitleMarquee, { passive: true });
+    }
 
     let wasPlaying = false;
     // While a finger or pointer holds the bar, the bar shows where it is, not
