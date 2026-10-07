@@ -471,28 +471,14 @@ test.describe('audience', () => {
 });
 
 test.describe('analytics', () => {
-  test("opens an article's analytics, and Back returns to the list", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
+  test('switches from whole-site analytics to page and click reports', async ({ page }) => {
     await open(page, '/analytics');
-    const articles = page.getByRole('region', { name: 'Articles' });
-    const first = articles.getByRole('link').first();
-    const href = (await first.getAttribute('href'))!;
-    const slug = href.split('/').pop()!;
-    // The row names the post by its Ghost title, not its slug.
-    const name = first.locator('span').first();
-    await expect(name).not.toHaveText(slug);
-    const title = (await name.textContent())!;
-
-    await first.click();
-    const panel = page.getByRole('complementary', { name: 'Article analytics' });
-    await expect(panel.getByRole('heading', { name: title, exact: true })).toBeVisible();
-    await expect(panel.getByText(`${slug} · Last 30 days`)).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`/analytics/${slug}$`));
-
-    await page.goBack();
-    await expect(panel).toBeHidden();
-    await expect(page).toHaveURL(/\/analytics$/);
-    await expect(articles.getByRole('link').first()).toBeFocused();
+    await expect(page.getByText('Engaged views', { exact: true })).toBeVisible();
+    const tabs = page.getByRole('navigation', { name: 'Analytics reports' });
+    await tabs.getByRole('button', { name: 'Pages', exact: true }).click();
+    await expect(page.getByRole('columnheader', { name: 'Median dwell', exact: true })).toBeVisible();
+    await tabs.getByRole('button', { name: 'Clicks', exact: true }).click();
+    await expect(page.getByRole('cell', { name: 'desk.panel', exact: true })).toBeVisible();
   });
 });
 

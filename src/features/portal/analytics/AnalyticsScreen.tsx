@@ -1,346 +1,664 @@
 import * as React from 'react';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { BlogAnalyticsEventRecord } from '@bunizao/contracts';
-import { useMediaQuery } from '@/components/coss/hooks/use-media-query';
-import { Skeleton } from '@/components/coss/skeleton';
-import { Spinner } from '@/components/coss/spinner';
-import { cn } from '@/lib/utils';
-import { href, mergeHistoryState, navigate, readHistoryState, setSearch, useLocation } from '../app/router';
-import { ScreenHeader } from '../app/shell/ScreenHeader';
-import { useSavedScroll, useScrollRestoration } from '../app/scroll';
-import { GUTTER, LIST, LoadError, ROWS, Section, Segmented, SkeletonRows } from '../activity/table';
-import { ArticlePanel } from './ArticlePanel';
-import { DailyBars, denseDays } from './charts';
+import type { QueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
-  DEFAULT_RANGE,
-  EVENT_CAP,
-  RANGES,
-  prefetchArticle,
-  prefetchLatestVisits,
-  prefetchPostTitles,
-  prefetchSummary,
-  readRange,
-  useLatestVisits,
-  usePostTitles,
-  useSummary,
-  type RangeDays,
-} from './data';
-import { countryName, formatCount, formatDuration, formatPercent, platformName, sourceName } from './format';
-import { ArticleHeader, ArticleRow, ArticleSkeleton, Breakdown, KpiStrip, MoreRow, VisitHeader, VisitRow, articleHref, type BreakdownRow } from './tables';
+  SITE_ANALYTICS_SURFACES,
+  type ListeningAnalyticsSummary,
+  type NewsletterAnalyticsSummary,
+  type SiteAnalyticsReportResult,
+} from '@bunizao/contracts/analytics';
+import { ScreenHeader } from '../app/shell/ScreenHeader';
+import { setSearch, useLocation } from '../app/router';
+import { apiGet } from '../app/api';
+import {
+  GUTTER,
+  LoadError,
+  Section,
+  Segmented,
+  SkeletonRows,
+} from '../activity/table';
+import { DEFAULT_RANGE, RANGES, readRange } from './data';
+import {
+  readReport,
+  useSiteReport,
+  prefetchSiteReport,
+  reportRange,
+} from './site-data';
+import { formatCount, formatDuration, formatPercent } from './format';
+import { OWNER_KEY } from '@/lib/analytics/beacon';
 
-/* /analytics and /analytics/:slug are one screen, so opening an article
-   never unmounts the list: its scroll, its "show all" and its data stay
-   put, and Back only closes the panel. */
-
-const RANGE_OPTIONS = RANGES.map((days) => ({ value: days, label: `${days}d`, ariaLabel: `Last ${days} days` }));
-const TOP_ARTICLES = 10;
-const VISITS_SHOWN = 15;
-/** History state on an article entry: the list entry it was opened from. */
-const RETURN_KEY = 'analyticsReturn';
-
-function slugFromPath(path: string): string | null {
-  const match = /^\/analytics\/([^/]+)$/.exec(path);
-  if (!match) return null;
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return match[1];
-  }
-}
-
-const DEVICE_LABELS: Record<string, string> = { mobile: 'Phone', tablet: 'Tablet', desktop: 'Desktop', other: 'Other' };
-const deviceLabel = (key: string): string => DEVICE_LABELS[key] ?? 'Unknown';
-const trackLabel = (key: string): string => key;
-const EMPTY_EVENTS: BlogAnalyticsEventRecord[] = [];
-
-function deviceRows(events: readonly BlogAnalyticsEventRecord[]): BreakdownRow[] {
-  const counts = new Map<string, number>();
-  for (const event of events) {
-    const key = event.deviceType ?? 'unknown';
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return [...counts].map(([key, views]) => ({ key, views }));
-}
-
-function StatLine({ items }: { items: Array<[string, string]> }) {
+const TABS = [
+  ['overview', 'Site'],
+  ['pages', 'Pages'],
+  ['clicks', 'Clicks'],
+  ['sources', 'Sources'],
+  ['audience', 'Audience'],
+  ['quality', 'Quality'],
+  ['log', 'Log'],
+  ['listening', 'Listening'],
+  ['newsletter', 'Newsletter'],
+] as const;
+const RANGE_OPTIONS = RANGES.map((value) => ({
+  value,
+  label: `${value}d`,
+  ariaLabel: `Last ${value} days`,
+}));
+function OwnerToggle() {
+  const [excluded, setExcluded] = React.useState(() => {
+    try {
+      return localStorage.getItem(OWNER_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [error, setError] = React.useState('');
   return (
-    <dl className={cn('flex flex-wrap gap-x-6 gap-y-1 py-2 text-sm', GUTTER)}>
-      {items.map(([label, value]) => (
-        <div key={label} className="flex items-baseline gap-2">
-          <dt className="text-muted-foreground">{label}</dt>
-          <dd className="tabular-nums">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="flex flex-wrap items-center gap-3 text-sm">
+      <label className="flex min-h-11 cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          checked={excluded}
+          onChange={(event) => {
+            try {
+              if (event.target.checked) localStorage.setItem(OWNER_KEY, '1');
+              else localStorage.removeItem(OWNER_KEY);
+              setExcluded(event.target.checked);
+              setError('');
+            } catch {
+              setError(
+                'This browser blocks local storage. The preference could not be saved.',
+              );
+            }
+          }}
+        />
+        Don’t count this browser
+      </label>
+      {error && <p role="alert">{error}</p>}
+    </div>
   );
 }
-
-/** The range the URL names and the latest visits (see app/lazy-screen.ts).
-    An open article loads beside the list, so it is not waited for. */
-export function prefetch(client: QueryClient, search: URLSearchParams): Promise<unknown> {
-  return Promise.all([prefetchSummary(client, readRange(search)), prefetchLatestVisits(client), prefetchPostTitles(client)]);
+type Row = { key: string; cells: React.ReactNode[] };
+function ReportTable({ headings, rows }: { headings: string[]; rows: Row[] }) {
+  if (!rows.length)
+    return (
+      <p className="py-4 text-sm text-muted-foreground">
+        No recorded data in this range.
+      </p>
+    );
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr>
+            {headings.map((heading) => (
+              <th
+                key={heading}
+                scope="col"
+                className="h-11 whitespace-nowrap px-3 font-medium text-muted-foreground"
+              >
+                {heading}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key} className="h-12 hover:bg-muted/40">
+              {row.cells.map((cell, index) => (
+                <td
+                  key={headings[index]}
+                  className={`max-w-80 px-3 py-2 tabular-nums ${headings[index] === 'Day' ? 'whitespace-nowrap' : 'break-words'}`}
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
-
-export default function AnalyticsScreen() {
-  const location = useLocation();
-  const days = readRange(location.search);
-  const search = location.search.toString();
-  const slug = slugFromPath(location.path);
-  const wide = useMediaQuery('min-xl');
-  const overlay = Boolean(slug) && !wide;
-  const client = useQueryClient();
-
-  const summary = useSummary(days);
-  const visits = useLatestVisits();
-  const titles = usePostTitles();
-  const [allArticles, setAllArticles] = React.useState(false);
-  const [visitsShown, setVisitsShown] = React.useState(VISITS_SHOWN);
-
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  /* Sections below the first screen render in a background pass right after
-     the screen appears. A Back that restores a scroll position needs them
-     in the first frame, or the restore would land short. */
-  const savedTop = useSavedScroll('analytics');
-  const [restoring] = React.useState(() => savedTop !== null);
-  const settled = React.useDeferredValue(true, restoring);
-  useScrollRestoration(scrollRef, 'analytics', Boolean(summary.data) && settled);
-
-  const setRange = (next: RangeDays): void =>
-    setSearch({ days: next === DEFAULT_RANGE ? null : String(next) });
-
-  const listPath = `/analytics${search ? `?${search}` : ''}`;
-
-  // Stable across renders, so memoised rows skip work when a panel opens.
-  const openRef = React.useRef<(next: string) => void>(() => {});
-  openRef.current = (next: string) => {
-    const target = articleHref(next, search);
-    if (slug) {
-      // Switching articles replaces the entry, so Back still means "list".
-      navigate(target, { replace: true });
-      return;
-    }
-    const from = window.location.pathname + window.location.search;
-    navigate(target);
-    mergeHistoryState({ [RETURN_KEY]: from });
-  };
-  const open = React.useCallback((next: string) => openRef.current(next), []);
-
-  const lastSlug = React.useRef<string | null>(null);
-  if (slug) lastSlug.current = slug;
-
-  const close = React.useCallback(() => {
-    if (readHistoryState()[RETURN_KEY] === href(listPath)) history.back();
-    else navigate(listPath, { replace: true });
-  }, [listPath]);
-
-  // Back on the row that was open, for keyboard and screen reader users.
-  React.useEffect(() => {
-    if (slug || !lastSlug.current) return;
-    const row = scrollRef.current?.querySelector<HTMLElement>(`[data-slug="${CSS.escape(lastSlug.current)}"]`);
-    row?.focus({ preventScroll: true });
-    lastSlug.current = null;
-  }, [slug]);
-
-  React.useEffect(() => {
-    if (!slug) return;
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape' && !event.defaultPrevented) close();
+function pageActivity(surface: string, one: number, two: number): string {
+  if (surface === 'home')
+    return `${one.toFixed(1)} panels · ${two.toFixed(1)} distinct`;
+  if (surface === 'blog_post')
+    return `Heading ${one.toFixed(1)} of ${two.toFixed(1)}`;
+  if (surface === 'mood_feed')
+    return `${one.toFixed(1)} feed pages · ${two.toFixed(1)} days deep`;
+  if (surface === 'mood_post')
+    return `${one.toFixed(1)} slides · ${two.toFixed(1)} comments`;
+  return '—';
+}
+function reportRows(
+  data: SiteAnalyticsReportResult,
+  selectVisitor: (visitor: string) => void,
+): { headings: string[]; rows: Row[] } {
+  if (data.report === 'overview' || data.report === 'pages')
+    return {
+      headings: [
+        'Day',
+        'Page',
+        'Views',
+        'Engaged',
+        'Median dwell',
+        'Scroll',
+        'Reads',
+        'Completed',
+        'Clicks / view',
+        'Average page activity',
+      ],
+      rows: data.pages.map((row) => ({
+        key: JSON.stringify([row.day, row.surface, row.entity]),
+        cells: [
+          row.day,
+          `${row.surface === '*' ? 'Whole site' : row.surface}${row.entity && row.entity !== '*' ? ` / ${row.entity}` : ''}`,
+          formatCount(row.views),
+          formatPercent(row.views ? row.engaged / row.views : 0),
+          formatDuration(row.medianDwellMs),
+          formatPercent(row.scrollDepth),
+          formatCount(row.reads),
+          formatCount(row.completions),
+          row.views ? (row.clicks / row.views).toFixed(2) : '0',
+          pageActivity(row.surface, row.metric1, row.metric2),
+        ],
+      })),
     };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [slug, close]);
-
-  const intent = React.useCallback((next: string) => prefetchArticle(client, next, days), [client, days]);
-
-  const data = summary.data;
-  const articles = data?.articles ?? [];
-  const shownArticles = allArticles ? articles : articles.slice(0, TOP_ARTICLES);
-  const seed = slug ? (articles.find((row) => row.slug === slug) ?? null) : null;
-  const events = visits.data?.events ?? EMPTY_EVENTS;
-  const devices = React.useMemo(() => deviceRows(events), [events]);
-  // The range the numbers on screen are for: the old one while a new one loads.
-  const shownDays = data?.range.days ?? days;
-  const points = React.useMemo(() => (data ? denseDays(data.daily, shownDays) : null), [data, shownDays]);
-  const pending = summary.isPlaceholderData;
-
+  if (data.report === 'clicks')
+    return {
+      headings: [
+        'Day',
+        'Surface',
+        'Action',
+        'Destination',
+        'Clicks',
+        'Daily visitors',
+        'Clicks / view',
+        'Median time',
+      ],
+      rows: data.clicks.map((row) => ({
+        key: JSON.stringify([
+          row.day,
+          row.surface,
+          row.entity,
+          row.name,
+          row.href,
+        ]),
+        cells: [
+          row.day,
+          `${row.surface} / ${row.entity}`,
+          row.name,
+          row.href || '—',
+          formatCount(row.clicks),
+          formatCount(row.visitors),
+          row.clickThrough.toFixed(2),
+          row.medianTimeMs === null ? '—' : formatDuration(row.medianTimeMs),
+        ],
+      })),
+    };
+  if (data.report === 'sources' || data.report === 'audience')
+    return {
+      headings: [
+        'Day',
+        'Dimension',
+        'Value',
+        'Views',
+        'Daily visitors',
+        'Engaged',
+      ],
+      rows: data.dimensions.map((row) => ({
+        key: JSON.stringify([row.day, row.surface, row.dim, row.key]),
+        cells: [
+          row.day,
+          row.dim,
+          row.key,
+          formatCount(row.views),
+          formatCount(row.visitors),
+          formatPercent(row.views ? row.engaged / row.views : 0),
+        ],
+      })),
+    };
+  if (data.report === 'quality')
+    return {
+      headings: [
+        'Day',
+        'Surface',
+        'Class',
+        'Reason',
+        'Views',
+        'Daily visitors',
+      ],
+      rows: data.traffic.map((row) => ({
+        key: JSON.stringify([row.day, row.surface, row.class, row.reason]),
+        cells: [
+          row.day,
+          row.surface,
+          row.class,
+          row.reason || 'No self-declaration',
+          formatCount(row.views),
+          formatCount(row.visitors),
+        ],
+      })),
+    };
+  return {
+    headings: ['Started', 'Page', 'Class', 'Dwell', 'Visitor', 'Details'],
+    rows: data.events.map((row) => ({
+      key: row.viewId,
+      cells: [
+        new Date(row.startedAt).toLocaleString('en-AU', {
+          timeZone: 'Australia/Melbourne',
+        }),
+        row.page.path,
+        `${row.class}${row.reason ? ` / ${row.reason}` : ''}`,
+        formatDuration(row.progress.dwellMs),
+        <button
+          key="visitor"
+          className="min-h-11 underline underline-offset-4"
+          onClick={() => selectVisitor(row.visitorId)}
+        >
+          {row.visitorId.slice(0, 12)}
+        </button>,
+        <details key="details">
+          <summary className="min-h-11 cursor-pointer content-center">
+            View details
+          </summary>
+          <dl className="py-3 text-xs">
+            <dt>IP / place</dt>
+            <dd>
+              {[row.ip, row.country, row.region, row.city]
+                .filter(Boolean)
+                .join(' · ') || 'Unknown'}
+            </dd>
+            <dt>User agent</dt>
+            <dd>{row.ua || 'Unknown'}</dd>
+            <dt>Network evidence</dt>
+            <dd>{row.network || 'Unknown'}</dd>
+            <dt>Clicks</dt>
+            <dd>
+              <ul>
+                {row.clicks.map((click) => (
+                  <li key={`${click.tMs}:${click.name}`}>
+                    {click.name} · {click.href || click.label} ·{' '}
+                    {formatDuration(click.tMs)}
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </dl>
+        </details>,
+      ],
+    })),
+  };
+}
+function SiteReport({
+  data,
+  selectVisitor,
+  surface,
+}: {
+  data: SiteAnalyticsReportResult;
+  selectVisitor: (visitor: string) => void;
+  surface: string;
+}) {
+  const table = reportRows(data, selectVisitor),
+    wholeSite = data.pages.filter((row) => row.surface === (surface || '*'));
+  const views = wholeSite.reduce((sum, row) => sum + row.views, 0),
+    engaged = wholeSite.reduce((sum, row) => sum + row.engaged, 0);
+  const sessions = wholeSite.reduce((sum, row) => sum + row.sessions, 0),
+    bounces = wholeSite.reduce((sum, row) => sum + row.bounces, 0);
+  return (
+    <>
+      {data.notices.map((notice) => (
+        <p key={notice} role="status" className="text-sm text-muted-foreground">
+          {notice}
+        </p>
+      ))}
+      {data.sampled && (
+        <p className="text-sm text-muted-foreground">
+          WAE sampled this range. Views, visitors and clicks are observed unique
+          records. WAE sampled checkpoints, so dwell, scroll and action
+          sequences can miss updates. Raw write budgets use sampling weights.
+        </p>
+      )}
+      {data.report === 'overview' && (
+        <dl className="grid grid-cols-2 gap-4 py-3 sm:grid-cols-4">
+          {[
+            ['Engaged views', formatCount(engaged)],
+            ['All human views', formatCount(views)],
+            [
+              data.visitorBasis === 'sum_monthly'
+                ? 'Monthly visitor sum'
+                : data.visitorBasis === 'sampled_distinct'
+                  ? 'Observed sampled visitors'
+                  : 'Visitors',
+              data.visitors === null
+                ? 'Unavailable'
+                : formatCount(data.visitors),
+            ],
+            [
+              'Daily-session bounce rate',
+              formatPercent(sessions ? bounces / sessions : 0),
+            ],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-sm text-muted-foreground">{label}</dt>
+              <dd className="pt-1 text-xl tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <ReportTable {...table} />
+      {data.report === 'quality' && data.rum && (
+        <Section
+          title="Cloudflare RUM page loads"
+          meta="Compare matching surfaces; embed views stay separate"
+          headingId="rum"
+        >
+          <ReportTable
+            headings={[
+              'Surface',
+              'Human views',
+              'RUM page loads',
+              'Human / RUM',
+            ]}
+            rows={data.rum.map((row) => {
+              const human = data.traffic
+                .filter((v) => v.surface === row.surface && v.class === 'human')
+                .reduce((sum, v) => sum + v.views, 0);
+              return {
+                key: row.surface,
+                cells: [
+                  row.surface,
+                  formatCount(human),
+                  formatCount(row.loads),
+                  row.loads ? (human / row.loads).toFixed(2) : 'Unavailable',
+                ],
+              };
+            })}
+          />
+        </Section>
+      )}
+      {data.nextCursor && (
+        <button
+          className="min-h-11 text-sm underline underline-offset-4"
+          onClick={() => setSearch({ cursor: data.nextCursor })}
+        >
+          Next 50 visits
+        </button>
+      )}
+    </>
+  );
+}
+function Supplement({
+  report,
+  days,
+}: {
+  report: 'listening' | 'newsletter';
+  days: number;
+}) {
+  const query = useQuery<
+    ListeningAnalyticsSummary | NewsletterAnalyticsSummary
+  >({
+    queryKey: ['analytics', report, days],
+    queryFn: ({ signal }) =>
+      report === 'listening'
+        ? apiGet<ListeningAnalyticsSummary>(
+            'v2/analytics/listening',
+            { days },
+            signal,
+          )
+        : apiGet<NewsletterAnalyticsSummary>(
+            'analytics/newsletter/summary',
+            { days },
+            signal,
+          ),
+    staleTime: 60000,
+  });
+  if (query.isError)
+    return (
+      <LoadError
+        what={report}
+        error={query.error}
+        onRetry={() => void query.refetch()}
+        retrying={query.isFetching}
+      />
+    );
+  if (!query.data) return <SkeletonRows rows={5} widths={['w-1/3', 'w-12']} />;
+  if (report === 'listening') {
+    const data = query.data as ListeningAnalyticsSummary;
+    return (
+      <ReportTable
+        headings={[
+          'Track',
+          'Artist',
+          'Plays',
+          'Listeners',
+          'Average listen',
+          'Finished',
+        ]}
+        rows={data.tracks.map((row) => ({
+          key: JSON.stringify([row.trackId, row.trackTitle, row.trackArtist]),
+          cells: [
+            row.trackTitle,
+            row.trackArtist || '—',
+            formatCount(row.plays),
+            formatCount(row.uniqueListeners),
+            formatDuration(row.avgListenedMs),
+            formatPercent(row.completionRate),
+          ],
+        }))}
+      />
+    );
+  }
+  const data = query.data as NewsletterAnalyticsSummary;
+  return (
+    <ReportTable
+      headings={[
+        'Campaign',
+        'Sent',
+        'Opened',
+        'Clicked',
+        'Open rate',
+        'Click rate',
+      ]}
+      rows={data.campaigns.map((row) => ({
+        key: row.campaignId,
+        cells: [
+          row.campaignId,
+          formatCount(row.sent),
+          formatCount(row.opened),
+          formatCount(row.clicked),
+          formatPercent(row.openRate),
+          formatPercent(row.clickRate),
+        ],
+      }))}
+    />
+  );
+}
+export function prefetch(
+  client: QueryClient,
+  search: URLSearchParams,
+): Promise<unknown> {
+  return prefetchSiteReport(client, search);
+}
+export default function AnalyticsScreen() {
+  const location = useLocation(),
+    report = readReport(location.search),
+    days = readRange(location.search),
+    surface = location.search.get('surface') || '';
+  const range = reportRange(days);
+  const supplement = report === 'listening' || report === 'newsletter';
+  const query = useSiteReport(location.search, !supplement);
+  const selectVisitor = (visitor: string) =>
+    setSearch({ report: 'visitor', visitor, cursor: null });
   return (
     <div className="flex h-svh flex-col">
       <ScreenHeader title="Analytics">
-        <span className="ms-auto flex items-center gap-2">
-          <span className="flex w-4 justify-center" aria-live="polite">
-            {pending && <Spinner className="size-3 text-muted-foreground" aria-label="Updating" />}
-          </span>
-          <Segmented label="Range" value={days} options={RANGE_OPTIONS} onChange={setRange} />
-        </span>
-      </ScreenHeader>
-
-      <div className="flex min-h-0 flex-1">
-        <div
-          ref={scrollRef}
-          inert={overlay}
-          className="@container min-w-0 flex-1 overflow-y-auto overscroll-contain"
-        >
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 pb-10 sm:gap-12">
-            {summary.isError && !data ? (
-              <div className="pt-3">
-                <LoadError what="analytics" error={summary.error} onRetry={() => void summary.refetch()} retrying={summary.isFetching} />
-              </div>
-            ) : (
-              <>
-                <div>
-                  <KpiStrip totals={data?.totals ?? null} />
-                  {data && data.totals.views >= EVENT_CAP && (
-                    <p className={cn('pb-2 text-muted-foreground text-xs', GUTTER)}>
-                      Counted from the newest {formatCount(EVENT_CAP)} visits in this range. Pick a shorter range for exact numbers.
-                    </p>
-                  )}
-                  <div className={cn('pt-2', GUTTER)}>
-                    {points ? (
-                      <DailyBars points={points} />
-                    ) : (
-                      <div aria-hidden className="flex h-40 flex-col gap-2 py-1">
-                        <Skeleton className="h-3 w-40" />
-                        <Skeleton className="flex-1" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <Section title="Articles" meta={data ? `${formatCount(articles.length)} read in this range, by views` : null} headingId="articles">
-                  <ArticleHeader />
-                  {!data ? (
-                    <ArticleSkeleton rows={TOP_ARTICLES} />
-                  ) : articles.length === 0 ? (
-                    <p className={cn('py-3 text-muted-foreground text-sm', GUTTER)}>
-                      No article views in the last {days} days. Visits show up here a few seconds after a reader opens a post.
-                    </p>
-                  ) : (
-                    <div className={LIST}>
-                      <ul className={ROWS}>
-                        {shownArticles.map((article) => (
-                          <ArticleRow
-                            key={article.slug}
-                            article={article}
-                            title={titles?.get(article.slug)}
-                            search={search}
-                            active={article.slug === slug}
-                            onOpen={open}
-                            onIntent={intent}
-                          />
-                        ))}
-                      </ul>
-                      {articles.length > TOP_ARTICLES && (
-                        <MoreRow onClick={() => setAllArticles((value) => !value)}>
-                          {allArticles ? `Show the top ${TOP_ARTICLES}` : `Show all ${formatCount(articles.length)}`}
-                        </MoreRow>
-                      )}
-                    </div>
-                  )}
-                </Section>
-
-                {settled && (
-                  <div className="grid gap-x-8 gap-y-10 sm:gap-y-12 @3xl:grid-cols-2">
-                    <Section title="Sources" headingId="sources">
-                      {data ? <Breakdown rows={data.referrers} label={sourceName} /> : <SkeletonRows rows={5} widths={['w-1/3', 'w-8']} />}
-                    </Section>
-                    <Section title="Countries" headingId="countries">
-                      {data ? <Breakdown rows={data.countries} label={countryName} /> : <SkeletonRows rows={5} widths={['w-1/3', 'w-8']} />}
-                    </Section>
-                    <Section title="Platforms" headingId="platforms">
-                      {data ? <Breakdown rows={data.platforms} label={platformName} /> : <SkeletonRows rows={5} widths={['w-1/3', 'w-8']} />}
-                    </Section>
-                    <Section title="Devices" meta="latest 200 visits, any range" headingId="devices">
-                      {visits.isError && !visits.data ? (
-                        <LoadError what="devices" error={visits.error} onRetry={() => void visits.refetch()} retrying={visits.isFetching} />
-                      ) : visits.data ? (
-                        <Breakdown rows={devices} label={deviceLabel} unit="visits" />
-                      ) : (
-                        <SkeletonRows rows={4} widths={['w-1/3', 'w-8']} />
-                      )}
-                    </Section>
-                  </div>
-                )}
-              </>
-            )}
-
-            {settled && (
-              <>
-                <Section title="Latest visits" meta="newest first, any range" headingId="visits">
-                  <VisitHeader />
-                  {visits.isPending ? (
-                    <SkeletonRows rows={VISITS_SHOWN} widths={['w-10', 'w-2/5', 'w-16']} />
-                  ) : visits.isError && !visits.data ? (
-                    <LoadError what="the latest visits" error={visits.error} onRetry={() => void visits.refetch()} retrying={visits.isFetching} />
-                  ) : events.length === 0 ? (
-                    <p className={cn('py-3 text-muted-foreground text-sm', GUTTER)}>No visits yet.</p>
-                  ) : (
-                    <div className={LIST}>
-                      <ol className={ROWS}>
-                        {events.slice(0, visitsShown).map((visit) => (
-                          <VisitRow key={visit.eventId} visit={visit} title={titles?.get(visit.slug)} search={search} onOpen={open} onIntent={intent} />
-                        ))}
-                      </ol>
-                      {events.length > visitsShown && <MoreRow onClick={() => setVisitsShown((count) => count + 50)}>Show more</MoreRow>}
-                    </div>
-                  )}
-                </Section>
-
-                {data?.newsletter && (
-                  <Section title="Newsletter" meta={`last ${days} days`} headingId="newsletter">
-                    <StatLine
-                      items={[
-                        ['Sent', formatCount(data.newsletter.totals.sent)],
-                        ['Opened', `${formatCount(data.newsletter.totals.opened)} (${formatPercent(data.newsletter.totals.openRate)})`],
-                        ['Clicked', `${formatCount(data.newsletter.totals.clicked)} (${formatPercent(data.newsletter.totals.clickRate)})`],
-                      ]}
-                    />
-                  </Section>
-                )}
-
-                {data?.listening && (
-                  <Section title="Listening" meta={`last ${days} days`} headingId="listening">
-                    <StatLine
-                      items={[
-                        ['Plays', formatCount(data.listening.totals.plays)],
-                        ['Listeners', formatCount(data.listening.totals.uniqueListeners)],
-                        ['Avg listen', formatDuration(data.listening.totals.avgListenedMs)],
-                        ['Finished', formatPercent(data.listening.totals.completionRate)],
-                      ]}
-                    />
-                    {data.listening.tracks.length > 0 && (
-                      <div className="mt-2">
-                        <Breakdown
-                          rows={data.listening.tracks.map((track) => ({ key: [track.trackTitle, track.trackArtist].filter(Boolean).join(' · '), views: track.plays }))}
-                          label={trackLabel}
-                          limit={5}
-                          unit="plays"
-                        />
-                      </div>
-                    )}
-                  </Section>
-                )}
-              </>
-            )}
-          </div>
+        <div className="ms-auto">
+          <Segmented
+            label="Range"
+            value={days}
+            options={RANGE_OPTIONS}
+            onChange={(next) =>
+              setSearch({
+                days: next === DEFAULT_RANGE ? null : String(next),
+                cursor: null,
+                from: null,
+                to: null,
+              })
+            }
+          />
         </div>
-
-        {/* A permanent slot, so opening appends the panel into an empty box.
-            Appended straight after the list, Chrome restyles the whole page
-            (every element, not just the panel) on each open. */}
-        <div className="contents">
-          {slug && (
-            <ArticlePanel
-              key={overlay ? 'overlay' : 'side'}
-              slug={slug}
-              title={titles?.get(slug)}
-              days={days}
-              seed={seed}
-              overlay={overlay}
-              onClose={close}
+      </ScreenHeader>
+      <nav
+        aria-label="Analytics reports"
+        className={`flex shrink-0 gap-1 overflow-x-auto py-2 ${GUTTER}`}
+      >
+        {TABS.map(([value, label]) => (
+          <button
+            key={value}
+            aria-current={
+              report === value || (value === 'log' && report === 'visitor')
+                ? 'page'
+                : undefined
+            }
+            className={`min-h-11 shrink-0 rounded-md px-3 text-sm ${report === value ? 'bg-muted font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={() =>
+              setSearch({
+                report: value === 'overview' ? null : value,
+                cursor: null,
+                visitor: null,
+              })
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      <main className={`min-h-0 flex-1 overflow-y-auto pb-8 ${GUTTER}`}>
+        <div className="mx-auto max-w-6xl space-y-4">
+          <OwnerToggle />
+          {!supplement && (
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <label>
+                Surface{' '}
+                <select
+                  aria-label="Surface"
+                  className="min-h-11 bg-transparent px-2"
+                  value={surface}
+                  onChange={(event) =>
+                    setSearch({
+                      surface: event.target.value || null,
+                      cursor: null,
+                    })
+                  }
+                >
+                  <option value="">Whole site</option>
+                  {SITE_ANALYTICS_SURFACES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {['log', 'visitor'].includes(report) && (
+                <label>
+                  Class{' '}
+                  <select
+                    aria-label="Traffic class"
+                    className="min-h-11 bg-transparent px-2"
+                    value={location.search.get('class') || ''}
+                    onChange={(event) =>
+                      setSearch({
+                        class: event.target.value || null,
+                        cursor: null,
+                      })
+                    }
+                  >
+                    <option value="">All classes</option>
+                    {['human', 'bot', 'owner'].map((value) => (
+                      <option key={value}>{value}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <form
+                key={location.search.toString()}
+                className="flex flex-wrap items-center gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const fields = new FormData(event.currentTarget);
+                  setSearch({
+                    from: String(fields.get('from')),
+                    to: String(fields.get('to')),
+                    entity: String(fields.get('entity')) || null,
+                    cursor: null,
+                  });
+                }}
+              >
+                <label>
+                  From{' '}
+                  <input
+                    type="date"
+                    name="from"
+                    className="min-h-11 bg-transparent px-2"
+                    defaultValue={location.search.get('from') || range.from}
+                    max={range.to}
+                    required
+                  />
+                </label>
+                <label>
+                  To{' '}
+                  <input
+                    type="date"
+                    name="to"
+                    className="min-h-11 bg-transparent px-2"
+                    defaultValue={location.search.get('to') || range.to}
+                    max={range.to}
+                    required
+                  />
+                </label>
+                <label>
+                  Entity{' '}
+                  <input
+                    name="entity"
+                    maxLength={96}
+                    className="min-h-11 w-40 bg-transparent px-2"
+                    defaultValue={location.search.get('entity') || ''}
+                    placeholder="Post or document id"
+                  />
+                </label>
+                <button
+                  className="min-h-11 rounded-md bg-muted px-3"
+                  type="submit"
+                >
+                  Apply
+                </button>
+              </form>
+              <span className="text-muted-foreground">
+                Melbourne calendar days · embed visitors reported separately
+              </span>
+            </div>
+          )}
+          {supplement ? (
+            <Supplement report={report} days={days} />
+          ) : query.isError ? (
+            <LoadError
+              what="site analytics"
+              error={query.error}
+              onRetry={() => void query.refetch()}
+              retrying={query.isFetching}
             />
+          ) : query.data ? (
+            <SiteReport
+              data={query.data}
+              selectVisitor={selectVisitor}
+              surface={surface}
+            />
+          ) : (
+            <SkeletonRows rows={10} widths={['w-1/3', 'w-12']} />
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

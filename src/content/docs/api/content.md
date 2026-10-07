@@ -341,3 +341,5 @@ today. `Cache-Control: no-store, max-age=0`.
 
 Use [`/api/writing`](#writing) for blog metadata, or the
 [RSS feeds](/docs/api/feeds#rss) for full post content.
+
+After site-analytics cutover and verified blog backfill, blog reads count views with at least 5,000 ms visible dwell, and completions use a 0.9 scroll threshold. `since` comes from the earliest stored Melbourne day. Lifetime `readers` is `null` when the identity-free rollups cannot reconstruct a distinct lifetime audience; it is never the sum of daily unique visitors. The desk uses reads and since.

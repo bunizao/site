@@ -109,7 +109,7 @@ values; later posts only advance the progress columns and `updated_at`.
 | Response | Meaning |
 | --- | --- |
 | `200 {"status":"ok"}` | Accepted |
-| `204` | Dropped: a bot, or the site already wrote its daily share of reading events |
+| `204` | Dropped: a bot, or the configured reading write budget is exhausted |
 | `400 {"error":"invalid_event_id"}`, `invalid_slug`, `invalid_visitor_id`, `invalid_body`, `invalid_json` | Validation failed |
 | `403 origin_rejected` | Failed the origin gate |
 | `413 body_too_large` | Body over 4096 bytes |
@@ -204,3 +204,28 @@ those requests out. The recorder does drop an event whose
 `subscriberCreatedAt` does not match the stored subscriber. That catches
 replayed tokens from a since-deleted record, but not a scanner following a
 live link.
+
+
+## Site collection
+
+`POST /api/analytics/collect` accepts `SiteAnalyticsCollectInput` from `@bunizao/contracts/analytics`. Version `v` is 1. View and session ids must be UUID v4; the visitor id is 8–64 characters. The page object carries surface, entity, pathname, locale, sanitized referrer and three campaign values. The client object carries time zone, up to three languages, viewport, pixel ratio, navigation type, entry/new-visitor flags and a WebDriver declaration. Progress carries visible dwell, maximum scroll, input count and timing, hidden count and two page-specific metrics. Up to twenty named clicks carry kind, sanitized destination, region, public label, list position and view-relative time.
+
+Bodies are limited to 8,192 UTF-8 bytes, including chunked requests. Strings are clamped to their contract caps. Invalid structures and ids return `400 invalid_body`, oversized bodies return `413 body_too_large`, foreign origins return `403 origin_rejected`, and rate limits return `429`. Localhost and recognized preview origins return `204` without a write. Successful production collection returns `204`; unavailable datasets return `503 analytics_unavailable`.
+
+Traffic is retained with a `human`, `bot` or `owner` label, including the reason. Owner classification comes from a verified Access cookie or the browser's explicit exclusion preference. Bots declare themselves through their user agent, a Signature-Agent header or WebDriver. ASN, network provider and behavior do not classify readers. Reports filter after classification; a view with any owner checkpoint stays owner, and a bot checkpoint outranks human checkpoints.
+
+## Site reports
+
+`GET /api/analytics/site?report=overview&from=YYYY-MM-DD&to=YYYY-MM-DD` requires the owner's Cloudflare Access identity. Dates are inclusive Australia/Melbourne calendar days. Optional `surface` and `entity` filters narrow a report. Reports are `overview`, `pages`, `clicks`, `sources`, `audience`, `quality`, `log` and `visitor`.
+
+The response includes its date range, time zone, sampling flag, visitor basis, notices and typed rows. Missing rollups and unavailable RUM comparisons are explicit notices, never zero measurements. Today comes from WAE and completed historical days from D1. Daily rows retain their dates so daily unique counts cannot be mistaken for range uniques. Whole-site totals exclude mood embeds. Median dwell and click timing are computed from weighted distributions; they are not averages of daily medians.
+
+One-day and complete stored calendar-month/ISO-week visitor totals use rollups. Other retained ranges use WAE distinct visitors, labelled as observed sampled visitors when sampled. Longer ranges show a labelled sum of stored calendar-month visitors, including boundary months; they are not lifetime unique visitors. Raw `log` and `visitor` reports cover at most ninety days, return fifty views with their clicks and use `nextCursor`. `visitor` requires a `visitor` id; raw reports accept `class=human|bot|owner`. Invalid dates and filters return `400`; read failures return `503 analytics_report_unavailable`. The Worker caches reports for sixty seconds and browser responses use `private, no-store`.
+
+`GET /api/v2/analytics/listening?days=30` and `GET /api/analytics/newsletter/summary?days=30` expose the existing listening and newsletter summaries independently of the retired blog stream, under the same Access gate. Their write behavior is unchanged.
+
+The old `/api/analytics/event` stream remains active during the first fourteen days after the configured cutover, then returns `204` without writes and returns `410` after thirty days. The old summary, events and article read routes return `410` after thirty days. Physical route and documentation removal is a subsequent release after that date.
+
+Sampling weights estimate event counts and medians. Unique identities use the distinct ids actually observed; sampling can undercount visitors, so sampled visitor figures are explicitly labelled rather than multiplying distinct people by a view sampling weight.
+
+WAE samples individual checkpoints within an index, so a view id does not preserve every event in that view. View metrics use cumulative maxima; clicks are deduplicated by view, carrying sequence, event time and action name. Page and visitor counts are observed distinct records, never checkpoint weights applied to already-grouped views. Raw write budgets use `SUM(_sample_interval)`. Sampled progress and click histories may be incomplete and are labelled. Cross-midnight checkpoints belong to the first observed timestamp of their view; daily rollups reread recent days to capture late progress. Session entry, exit and bounce use retained neighboring views of the same session.

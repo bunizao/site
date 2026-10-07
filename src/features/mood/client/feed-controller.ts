@@ -1,3 +1,4 @@
+import { analyticsMetric } from '@/lib/analytics/events';
 import { createAnimatedEmojiManager } from '@/features/mood/client/animated-emoji';
 import { createFeedCommentsPopoverController } from '@/features/mood/client/feed-comments-popover';
 import { createFeedMediaHydrator } from '@/features/mood/client/feed-media-hydration';
@@ -1055,6 +1056,7 @@ export function initMoodFeedController(): void {
             const ready = collectUnseenPosts(posts);
             if (ready.length) {
               appendMoods(ready, totalCount);
+            analyticsMetric(1, 1, true);
             }
 
             showFeed();
@@ -1090,6 +1092,7 @@ export function initMoodFeedController(): void {
             const ready = collectUnseenPosts(posts);
             if (ready.length) {
               appendMoods(ready, totalCount);
+            analyticsMetric(1, 1, true);
             }
 
             showFeed();
@@ -1116,6 +1119,7 @@ export function initMoodFeedController(): void {
           const ready = collectUnseenPosts(posts);
           if (ready.length) {
             appendMoods(ready, totalCount);
+            analyticsMetric(1, 1, true);
           }
           showFeed();
           startUpdateWatcher();
@@ -1164,6 +1168,7 @@ export function initMoodFeedController(): void {
           }
 
           prependMoods(ready);
+          analyticsMetric(1, 1, true);
         } catch (error) {
           console.error(error);
           setNewerStatus('Unable to load newer moods.');
@@ -1210,6 +1215,7 @@ export function initMoodFeedController(): void {
           const ready = collectUnseenPosts(posts);
           if (ready.length) {
             appendMoods(ready, totalCount);
+            analyticsMetric(1, 1, true);
             setStatus('');
           }
 

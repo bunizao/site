@@ -5,9 +5,9 @@ import { isPortalDemo } from '@/features/portal/server/demo-mode';
 
 export const prerender = false;
 
-/* The three analytics reads the portal draws. They sit outside site-api's
+/* Analytics reads sit outside site-api's
    `/api/admin/*` but behind the same Access identity, and are read-only. */
-const ANALYTICS_READS = /^analytics\/(summary|events|article\/[^/]+)$/;
+const ANALYTICS_READS = /^(analytics\/(site|summary|events|article\/[^/]+|newsletter\/summary)|v2\/analytics\/listening)$/;
 
 function normalizePortalApiPath(path: string | undefined, method: string): string | null {
   const cleanPath = (path ?? '').replace(/^\/+/, '');

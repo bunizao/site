@@ -1,14 +1,14 @@
 ---
 title: Privacy Policy
 description: How this site collects, uses, and retains personal data, and which third parties are involved.
-updatedAt: September 3, 2026
+updatedAt: October 7, 2026
 ---
 
 # Privacy Policy
 
 This Privacy Policy describes how this website collects, uses, discloses, and retains personal data. It applies to the site as a whole — pages, blog articles, API routes, the homepage listening card, the comment thread under each blog post, the private message form at [/message](/message), and the optional mood subscription available at [/mood](/mood) — together with the infrastructure and service providers used to operate it.
 
-> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. No third-party analytics or advertising trackers are loaded as part of a normal page view. First-party reading and audio-playback analytics are sent only to this site's own API. Choosing to play an embedded YouTube video loads YouTube's third-party player. You provide information directly in three places only: the optional mood subscription, the comment box under a blog post, and the private message form. Commenting requires a display name and the comment itself; an email address is optional there and buys a persistent identity rather than access. It is stored, but it never appears in a page or an API response — what readers see beside your comment is an avatar derived from a one-way hash of it. Comment submissions are checked for spam by Akismet.
+> **Summary.** We do not sell personal data, share it with data brokers, or use it to build advertising profiles. Page and click analytics are sent to this site's own API. Cloudflare Web Analytics and any Google tags configured at the network edge operate separately from the first-party collection described below. Choosing to play an embedded YouTube video loads YouTube's third-party player. You provide information directly in three places only: the optional mood subscription, the comment box under a blog post, and the private message form. Commenting requires a display name and the comment itself; an email address is optional there and buys a persistent identity rather than access. It is stored, but it never appears in a page or an API response — what readers see beside your comment is an avatar derived from a one-way hash of it. Comment submissions are checked for spam by Akismet.
 
 ## Scope
 
@@ -24,8 +24,8 @@ Depending on how you use the site, we may collect or process the following categ
 - **Blog comment data.** A published comment is stored with its text, display name, timestamps, and — where you supplied one — your email address and a hash of it. Each comment additionally carries anti-abuse signals derived from the request: a keyed hash of your IP address rather than the address itself, a keyed device fingerprint hash, the user agent, and the country and network provider Cloudflare reports. Reactions are stored with a keyed identity value rather than an identifying one.
 - **Technical and request data.** Serving a page or an API route requires standard request metadata. It is processed to deliver the response, enforce rate limits, and prevent abuse.
 - **Operational and performance data.** Cloudflare processes request metadata, logs, and performance signals necessary to serve the site, maintain availability, and diagnose failures.
-- **Blog reading analytics.** Blog article pages send first-party reading events to this site's own API; no third-party analytics vendor is loaded. These events may include the post slug, event, visitor and session identifiers, dwell time, scroll depth, completion state, referrer, IP address, approximate location and network metadata derived by Cloudflare, language, browser, operating system, device type, and user agent.
-- **Listening playback analytics.** Listening cards send first-party playback events to this site's own API when you interact with audio. These events may include the track identifier, title and artist; page path and surface; play requests, successful starts, pauses, seeks and completion; actual listening time, media position and duration; the same visitor and session identifiers used for blog reading analytics; and request-derived IP address, approximate location, referrer, language, browser, operating system, device type, and user agent.
+- **Page and click analytics.** Public pages send a page identifier and path, anonymous visitor and session identifiers, visible dwell time, scroll depth, trusted input counts, entry and navigation state, page-specific counters, viewport, time zone, languages, referrer, and allowlisted campaign values. Link and button events include a stable action name, public label, destination path, page region, position and elapsed time. The server adds IP address, approximate Cloudflare location, network metadata and user agent. URL query strings, fragments other than named desk panels, form contents, search query text and keystrokes are excluded. Owner and declared automated traffic are labelled separately; network and behavior guesses do not exclude readers.
+- **Listening playback analytics.** Listening cards send first-party playback events to this site's own API when you interact with audio. These events may include the track identifier, title and artist; page path and surface; play requests, successful starts, pauses, seeks and completion; actual listening time, media position and duration; the same visitor identifier used for page analytics and a separate playback session; and request-derived IP address, approximate location, referrer, language, browser, operating system, device type, and user agent.
 - **Edge connection diagnostics.** The footer can display attributes of your current connection derived by Cloudflare from your request: the serving datacenter, HTTP protocol, TLS version, TCP round-trip time, approximate location, and network or internet provider. These values are computed per request, returned only to you, and are not stored.
 - **Listening feature request data.** The homepage listening card triggers server-side requests to Last.fm and Apple services to retrieve the most recent track, album metadata, artwork, preview URLs, and related listening status.
 - **Theme preference data.** If you change the site theme, the preference is stored locally in your browser and is not transmitted to us.
@@ -101,11 +101,15 @@ You can edit your own comment for fifteen minutes after posting, and delete it a
 
 There is no self-service control that erases a reader identity in one action. To have a reader record and the comments attached to it removed, write to [me@buxx.me](mailto:me@buxx.me). The name, address, and draft your own browser is holding are cleared by clearing site data, which happens on your device and does not need us.
 
-## Blog reading analytics
+## Page and click analytics
 
-Blog article pages use first-party analytics served by this site's own API. No third-party analytics script is loaded. A visitor identifier is stored in local storage and a session identifier in session storage so that repeated events can be grouped without requiring an account.
+Every public page can send first-party page and click events to `/api/analytics/collect`. Owner and development pages under `/dev/` and `/lab/` do not mount this beacon. The beacon runs only on the production hostnames and skips collection when your browser signals Global Privacy Control.
 
-The server derives network and browser signals from the request, including IP address, approximate Cloudflare location metadata, ASN or network provider metadata, user agent, language, browser, operating system, and device type. Events may be retained while the analytics feature remains in operation and under review. They are not sold and are not used for unrelated advertising profiles. You may clear the browser-stored visitor and session identifiers through your browser's storage controls at any time.
+A random visitor identifier is held in local storage. A session identifier, also in local storage, expires after thirty minutes of inactivity. Each page load has a separate in-memory view identifier. Visible dwell pauses while the tab is hidden; trusted inputs are counted without recording their contents. Click records use public control text rather than input values. Only `utm_source`, `utm_medium`, `utm_campaign` and the mood tag filter can be collected from URL parameters. Other query strings are removed from page paths, referrers and destinations.
+
+Raw events, including IP address and request-derived location, are held in Cloudflare Workers Analytics Engine with its fixed three-month retention. Owner reports expose at most ninety days of raw history. Daily and period aggregates in Cloudflare D1 contain no IP address, visitor identifier or session identifier and may be kept indefinitely. Sampling is labelled when present; aggregate visitor counts across multiple months are labelled as sums, not lifetime distinct readers. The older blog-only stream is migrated and retired after a verified backfill.
+
+You can clear the visitor and session identifiers through your browser's storage controls. These records are not sold or used for advertising profiles. The owner can exclude a browser with the portal's “Don’t count this browser” preference.
 
 ## Blog comments
 
@@ -141,7 +145,7 @@ When the feature runs, this site's server sends track lookup terms derived from 
 
 ## Listening playback analytics
 
-Listening cards on the homepage, blog, mood, and component pages use first-party playback analytics served by this site's own API. No third-party analytics script is loaded. These events distinguish a play request from playback that actually starts, and record cumulative heard time rather than inferring listening solely from the media position. Pause, seek, progress checkpoint, completion, track, page, and surface data are grouped into one playback record.
+Listening cards on the homepage, blog, mood, and component pages use first-party playback analytics served by this site's own API. These first-party events distinguish a play request from playback that actually starts, and record cumulative heard time rather than inferring listening solely from the media position. Pause, seek, progress checkpoint, completion, track, page, and surface data are grouped into one playback record.
 
 Playback analytics reuse the visitor identifier stored in local storage and the session identifier stored in session storage for blog reading analytics. The server derives IP, approximate Cloudflare location, referrer, language, browser, operating system, device type, and user-agent information from the request. You may clear the browser-stored identifiers through your browser's storage controls at any time.
 

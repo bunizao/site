@@ -27,7 +27,7 @@ const hasSwitcher = versions.length > 1;
   <ul class="blog-tags" aria-label="Tags" data-pagefind-ignore>
     {publicTags.map((tag) => (
       <li>
-        <a class="blog-tag" href={tagPath(tag.slug)}>{tag.name}</a>
+        <a data-track="post.tag" class="blog-tag" href={tagPath(tag.slug)}>{tag.name}</a>
       </li>
     ))}
     {hasSwitcher && publicTags.length > 0 && (

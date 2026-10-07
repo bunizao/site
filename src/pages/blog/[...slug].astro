@@ -14,7 +14,6 @@ import BackToTop from '@/features/posts/ui/BackToTop.astro';
 import Colophon from '@/features/posts/ui/Colophon.astro';
 import ShareRow from '@/features/posts/ui/ShareRow.astro';
 import { commentPolicyFromTags } from '@bunizao/contracts/comments';
-import BlogArticleBeacon from '@/features/posts/ui/BlogArticleBeacon.astro';
 import SubscribePanel from '@/features/notify/SubscribePanel.astro';
 import ReactionBar from '@/features/comments/ui/ReactionBar';
 import CommentsSection from '@/features/comments/ui/CommentsSection.astro';
@@ -202,6 +201,7 @@ const translated = isTranslation(post);
 ---
 
 <BlogLayout
+  analytics={{ surface: 'blog_post', entity: post.slug, locale: postLocale }}
   title={post.title}
   description={postDescription}
   path={canonicalPath}
@@ -328,7 +328,6 @@ const translated = isTranslation(post);
   <BlogSeaFooter />
 
   <BackToTop />
-  <BlogArticleBeacon slug={post.slug} />
   <script>
     import { initCommentsController } from '@/features/comments/client/comments-controller';
     initCommentsController();

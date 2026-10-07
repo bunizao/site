@@ -643,7 +643,7 @@ function MagicLinkGate({
             {error}
           </p>
         )}
-        <button type="submit" className="mp-btn mp-btn--block" disabled={busy}>
+        <button data-track="manage.request_link" type="submit" className="mp-btn mp-btn--block" disabled={busy}>
           {busy ? <span className="mp-spinner mp-spinner--on-fg" aria-hidden="true" /> : t.sendLink}
         </button>
       </form>
@@ -1120,7 +1120,7 @@ function PreferencesPanel({
               type="button"
               className="mp-link-btn mp-link-btn--danger"
               disabled={saving}
-              onClick={() => openConfirmDialog('delete')}
+              data-track="manage.delete" onClick={() => openConfirmDialog('delete')}
             >
               {t.deleteRecord}
             </button>
@@ -1285,7 +1285,7 @@ function PreferencesPanel({
           type="button"
           className="mp-link-btn"
           disabled={saving}
-          onClick={() => openConfirmDialog('unsubscribe')}
+          data-track="manage.unsubscribe" onClick={() => openConfirmDialog('unsubscribe')}
         >
           {t.unsubscribeAll}
         </button>
@@ -1298,7 +1298,7 @@ function PreferencesPanel({
             className="mp-btn mp-btn--save"
             data-state={saving ? 'saving' : savedAt ? 'saved' : 'idle'}
             disabled={saving || noChannels || !hasPreferenceChanges}
-            onClick={save}
+            data-track="manage.save" onClick={save}
           >
             {/* All three labels share one grid cell, so the button never
                 resizes and the state change reads as one box changing its
@@ -1331,7 +1331,7 @@ function PreferencesPanel({
             type="button"
             className="mp-link-btn mp-link-btn--danger"
             disabled={saving}
-            onClick={() => openConfirmDialog('delete')}
+            data-track="manage.delete" onClick={() => openConfirmDialog('delete')}
           >
             {t.deleteRecord}
           </button>

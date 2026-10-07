@@ -1,3 +1,4 @@
+import { analyticsClick } from '@/lib/analytics/events';
 import type gsap from 'gsap';
 import { slotText, type SlotOptions, type SlotTextController } from 'slot-text';
 import 'slot-text/style.css';
@@ -60,6 +61,7 @@ export function mountTimelineWheel(
   // The wheel doubles as a back-to-top control: clicking it returns to the
   // feed top, and the existing scroll sync winds the dial back as you go.
   const topButton = wheel.querySelector('[data-timeline-top]') as HTMLButtonElement | null;
+  if (topButton) topButton.dataset.trackManual = '';
   const handleTopClick = (): void => {
     // A drag releases with a click event; only a press that never moved counts.
     if (suppressClick) {
@@ -67,6 +69,7 @@ export function mountTimelineWheel(
       return;
     }
 
+    analyticsClick('mood.wheel', { label: 'top', region: 'timeline' });
     const topHref = getMoodFeedTopHref(new URL(window.location.href));
     if (topHref) {
       window.location.assign(topHref);
@@ -933,6 +936,7 @@ export function mountTimelineWheel(
     // A press that never moved is a click, and click still means back to top.
     if (!dragMoved) return;
     suppressClick = true;
+    if (!cancelled) analyticsClick('mood.wheel', { label: dragThreshold === HANDOVER_THRESHOLD ? 'swipe' : 'drag', region: 'timeline', position: Math.min(9999, Math.abs(Math.round(dragProgress - dragStartProgress))) });
     release(cancelled ? 0 : dragSpeed());
   };
 
@@ -980,6 +984,7 @@ export function mountTimelineWheel(
       step > 0 ? Math.floor(dragProgress) + 1 : Math.ceil(dragProgress) - 1
     );
     setEngaged(true);
+    analyticsClick('mood.wheel', { label: 'key', region: 'timeline', position: Math.min(9999, Math.abs(Math.round(target - dragProgress))) });
     animateProgressTo(target, prefersReducedMotion ? 0 : 220, easeOutCubic);
   };
 

@@ -404,3 +404,10 @@ binding to `site-api`) and `SESSION` (a KV namespace for Astro sessions).
 - **dayjs**: date formatting.
 - **prismjs**: syntax highlighting in mood posts.
 - **lru-cache**: in-memory caching for API responses.
+
+
+## Site analytics storage
+
+The public layouts mount `src/lib/analytics/beacon.ts` on public pages. `site-api` handles `/api/analytics/collect` and writes the `VIEWS` and `CLICKS` Analytics Engine bindings to `site_views` and `site_clicks`. Dataset slots are frozen; view ids are the sampling index. WAE retains raw events for three months. The hourly cron stores completed Melbourne-day aggregates in the `ANALYTICS_DB` D1 binding, database `site-analytics`, using `scripts/sql/analytics-migrations`.
+
+`CLOUDFLARE_ACCOUNT_ID` and the `CLOUDFLARE_ANALYTICS_TOKEN` secret authorize the WAE SQL API and Cloudflare RUM comparison. `SITE_ANALYTICS_CUTOVER_AT` is the actual UTC deployment timestamp: it controls the daily rollup floor, legacy ingest/read retirement, and the legacy retention sweep. Leave it unset until cutover. The complete verified backfill manifest in `analytics_state` gates switching the desk read snapshot and dropping the legacy table after ninety days. Listening and newsletter data stay in their existing tables.

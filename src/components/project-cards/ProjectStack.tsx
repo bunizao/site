@@ -145,7 +145,7 @@ function CardFace({
                 : undefined
             }
             tabIndex={active ? 0 : -1}
-            className="project-deck-more inline-flex items-center gap-1 rounded-sm font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
+            data-track="legacy.project_card" className="project-deck-more inline-flex items-center gap-1 rounded-sm font-sans text-[11px] font-medium uppercase tracking-[0.1em] text-stone-400 transition-colors hover:text-stone-700 focus-visible:text-stone-700 dark:text-white/45 dark:hover:text-white/85 dark:focus-visible:text-white/85"
           >
             Tell me more
             <ArrowUpRight className="h-3.5 w-3.5" />

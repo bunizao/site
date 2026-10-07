@@ -22,7 +22,7 @@ const current = versions.find((version) => version.current) ?? versions[0];
 
 {versions.length > 1 && (
   <li class="blog-lang">
-    <button
+    <button data-track="post.lang"
       class="blog-lang__pill"
       type="button"
       aria-label={label}
@@ -45,7 +45,7 @@ const current = versions.find((version) => version.current) ?? versions[0];
 
     <div class="blog-lang__menu" role="menu" aria-label={label} hidden>
       {versions.map((version) => (
-        <a
+        <a data-track="post.lang"
           class="blog-lang__item"
           role="menuitemradio"
           aria-checked={version.current}

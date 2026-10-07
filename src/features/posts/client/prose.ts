@@ -615,7 +615,9 @@
         document.addEventListener('keydown', onKey);
       };
 
-      zoomable.forEach((img) => {
+      zoomable.forEach((img, imageIndex) => {
+        img.dataset.track = 'post.image';
+        img.dataset.trackPosition = String(imageIndex);
         img.style.cursor = 'zoom-in';
         img.addEventListener('click', () => open(img));
       });

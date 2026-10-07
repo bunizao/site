@@ -479,7 +479,7 @@ const t = commentsCopy[locale];
             rows="2"></textarea>
           <div class="blog-compose__bar">
             <span class="blog-compose__count" data-compose-count aria-hidden="true" hidden></span>
-            <button type="button" class="blog-compose__go" data-compose-submit aria-label={t.replyPostAria} title={t.replyPost}>
+            <button data-track="post.comment_submit" type="button" class="blog-compose__go" data-compose-submit aria-label={t.replyPostAria} title={t.replyPost}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={ICONS.arrowUp} />
             </button>
           </div>
@@ -488,7 +488,7 @@ const t = commentsCopy[locale];
 
       {hasMore && (
         <div class="blog-comments__more">
-          <button
+          <button data-track="mood.load_more"
             type="button"
             class="blog-comments__more-btn"
             data-load-more

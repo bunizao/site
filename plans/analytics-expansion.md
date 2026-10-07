@@ -7,8 +7,20 @@ inside the Cloudflare ecosystem on the Free plan, as one detailed system
 they click ("分析页面的停留时间，然后点了什么"). Numbers must be precise, and the
 bot and agent filter must not misjudge real readers ("要尽量精确 … 误判断的风险").
 
-Status: **execution plan**, nothing built. Each section below is a spec.
-Section 18 lists the PRs in order.
+Status: **implemented and under rollout verification**. The original sections below describe the planned design. [Analytics verification](analytics-verification.md) records the actual implementation, reproducible commands, measured results and remaining production gates.
+
+Implementation corrections validated against the live Cloudflare APIs:
+
+- Contracts were released as 0.14.0, followed by 0.15.0 to represent unavailable lifetime reader counts as `null`.
+- WAE retains data for three months, not a strictly guaranteed ninety-day expiry. Owner raw reports are limited to ninety days.
+- WAE can sample checkpoints inside a view. A view index does not retain the whole sequence. Applying checkpoint `_sample_interval` to an already-grouped view inflates page counts. Reports count observed distinct views and visitors, use cumulative progress maxima, and disclose incomplete sampled histories. Raw write budgets use `SUM(_sample_interval)`.
+- Live WAE supports one subquery level. Queries were executed against its real SQL API; aggregate aliases and nested subqueries cannot be assumed to behave like ClickHouse.
+- Daily histograms are stored without identities, so medians can be reconstructed rather than averaging daily medians. Daily writes use JSON inserts inside one D1 batch, keeping the number of subrequests bounded.
+- The beacon measured 3.3 KB minified and gzipped, exceeding the original 2.5 KB target. Runtime correctness, retry preservation and UTF-8 body limits are retained.
+- The old desk counted every event as a read. Backfill compares both that legacy number and the new five-second read definition; equality between those different definitions is not an acceptance criterion.
+- Cutover is controlled by the actual `SITE_ANALYTICS_CUTOVER_AT` timestamp. The fourteen/thirty/ninety-day retirement clock and the seven-day observation window start only after production collection is activated.
+
+Section 18 remains the rollout sequence; completed and pending work is recorded in the verification file.
 
 ## 1. Decisions
 
