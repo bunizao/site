@@ -27,6 +27,12 @@ class ElementStub extends Target {
   tagName = 'BUTTON';
   textContent = 'Test';
   parent: ElementStub | null = null;
+  children: ElementStub[] = [];
+  contains(element: ElementStub): boolean {
+    return (
+      element === this || this.children.some((child) => child.contains(element))
+    );
+  }
   attrs: Record<string, string> = {};
   scrollHeight = 1000;
   clientHeight = 500;
@@ -68,6 +74,10 @@ function harness(
     beacon?: boolean;
     fetchReject?: boolean;
     hidden?: boolean;
+    uuidFallback?: boolean;
+    surface?: string;
+    entity?: string;
+    search?: string;
   } = {},
 ) {
   let now = 0,
@@ -75,7 +85,14 @@ function harness(
     id = 0;
   const window = new Target(),
     doc = Object.assign(new Target(), {
-      body: { dataset: { analyticsSurface: 'home' } },
+      body: {
+        dataset: {
+          analyticsSurface: options.surface || 'home',
+          ...(options.entity !== undefined
+            ? { analyticsEntity: options.entity }
+            : {}),
+        },
+      },
       documentElement: Object.assign(new ElementStub(), { lang: 'en' }),
       visibilityState: options.hidden ? 'hidden' : 'visible',
       prerendering: false,
@@ -102,7 +119,7 @@ function harness(
       hostname: options.host || 'buxx.me',
       pathname: '/',
       origin: 'https://buxx.me',
-      search: '?token=secret&utm_source=mail',
+      search: options.search ?? '?token=secret&utm_source=mail',
     },
     navigator: {
       languages: ['en-AU'],
@@ -161,6 +178,11 @@ function harness(
     clearTimeout: (id: number) => timers.delete(id),
     requestAnimationFrame: (run: () => void) => run(),
   };
+  context.crypto.getRandomValues = (bytes: Uint8Array) => {
+    bytes.fill(++id % 256);
+    return bytes;
+  };
+  if (options.uuidFallback) delete context.crypto.randomUUID;
   runInNewContext(source, context);
   context.startAnalytics();
   return {
@@ -189,6 +211,31 @@ function harness(
   };
 }
 describe('site beacon runtime', () => {
+  test('server-resolved tag metadata wins over raw query spelling and invalid filters', () => {
+    const valid = harness({
+      surface: 'mood_feed',
+      entity: 'life',
+      search: '?tag=%23LiFe',
+    });
+    expect(valid.payloads[0].page.entity).toBe('life');
+    const invalid = harness({
+      surface: 'mood_feed',
+      entity: '',
+      search: '?tag=*',
+    });
+    expect(invalid.payloads[0].page.entity).toBe('');
+  });
+  test('older webviews without randomUUID still send valid distinct UUID v4 identities', () => {
+    const h = harness({ uuidFallback: true }),
+      first = h.payloads[0];
+    for (const id of [first.viewId, first.visitorId, first.sessionId])
+      expect(id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+    expect(new Set([first.viewId, first.visitorId, first.sessionId]).size).toBe(
+      3,
+    );
+  });
   test('visible dwell pauses and resumes, including navigation at time zero; hidden exit is unchanged', () => {
     const h = harness();
     expect(h.payloads[0].progress.dwellMs).toBe(0);
@@ -321,6 +368,7 @@ describe('site beacon runtime', () => {
     first.tagName = second.tagName = 'A';
     list.tagName = 'UL';
     first.parent = second.parent = list;
+    list.children = [first, second];
     list.querySelectorAll = () => [first, second];
     expect(
       h.context.resolveClick({ target: second }, 'https://buxx.me', 50)
@@ -329,6 +377,29 @@ describe('site beacon runtime', () => {
     h.doc.fire('click', { target: second, isTrusted: false });
     h.hide();
     expect(h.payloads.at(-1).clicks).toHaveLength(0);
+  });
+  test('list positions count rows instead of the links and buttons inside earlier rows', () => {
+    const h = harness(),
+      list = new ElementStub({ 'data-track-list': '' });
+    list.tagName = 'UL';
+    const firstRow = new ElementStub(),
+      secondRow = new ElementStub();
+    firstRow.tagName = secondRow.tagName = 'LI';
+    const firstLink = new ElementStub({ href: '/first' }),
+      tag = new ElementStub({ href: '/tag' }),
+      secondLink = new ElementStub({ href: '/second' });
+    firstLink.tagName = tag.tagName = secondLink.tagName = 'A';
+    firstLink.parent = tag.parent = firstRow;
+    secondLink.parent = secondRow;
+    firstRow.parent = secondRow.parent = list;
+    firstRow.children = [firstLink, tag];
+    secondRow.children = [secondLink];
+    list.children = [firstRow, secondRow];
+    list.querySelectorAll = () => [firstLink, tag, secondLink];
+    expect(
+      h.context.resolveClick({ target: secondLink }, 'https://buxx.me', 50)
+        .position,
+    ).toBe(1);
   });
   test('an empty referrer remains direct, and UTF-8 click batches fit the ingest body limit', () => {
     const direct = harness();

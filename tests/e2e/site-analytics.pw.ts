@@ -6,6 +6,8 @@ const ROUTES = [
   ['/', 'home'],
   ['/legacy', 'legacy'],
   ['/mood', 'mood_feed'],
+  ['/mood?tag=%23LiFe', 'mood_feed'],
+  ['/mood?tag=*', 'mood_feed'],
   ['/mood/1001', 'mood_post'],
   ['/mood/embed?id=1001', 'mood_embed'],
   ['/blog', 'blog_index'],
@@ -78,6 +80,8 @@ for (const width of [320, 375, 1440])
         .find((p) => p.seq === 0 && p.page.surface === surface)!;
       expect(first.page.path).toBe(path.split('?')[0]);
       expect(first.client.vw).toBe(width);
+      if (path === '/mood?tag=%23LiFe') expect(first.page.entity).toBe('life');
+      if (path === '/mood?tag=*') expect(first.page.entity).toBe('');
       if (surface === 'not_found') expect(first.page.entity).toBe(path);
       expect(first.progress.dwellMs).toBeLessThan(1000);
       expect(first.viewId).toMatch(/^[0-9a-f-]{36}$/);

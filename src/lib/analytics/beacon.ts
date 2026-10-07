@@ -8,6 +8,17 @@ import { analyticsEnabled, cleanAnalyticsUrl, readAnalyticsPage } from './page';
 
 const VISITOR_KEY = 'buxx:blog-analytics:visitor-id';
 const SESSION_KEY = 'buxx:analytics:session';
+function createAnalyticsId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export const OWNER_KEY = 'buxx:analytics:owner';
 function stored(key: string): string | null {
   try {
@@ -26,7 +37,7 @@ function store(key: string, value: string): void {
 export function resolveSession(
   now: number,
   value: string | null,
-  createId = () => crypto.randomUUID(),
+  createId = createAnalyticsId,
 ): { id: string; isEntry: boolean } {
   try {
     const session = JSON.parse(value || 'null');
@@ -109,11 +120,7 @@ export function resolveClick(
     position: control.dataset.trackPosition
       ? Number(control.dataset.trackPosition)
       : list
-        ? Array.from(
-            list.querySelectorAll(
-              '[data-track], a[href], button, [role="button"]',
-            ),
-          ).indexOf(control)
+        ? Array.from(list.children).findIndex((item) => item.contains(control))
         : -1,
     tMs: Math.max(0, Math.round(elapsed)),
   };
@@ -144,13 +151,13 @@ export function startAnalytics(): (() => void) | undefined {
   const visitorId =
     existing && existing.length >= 8 && existing.length <= 64
       ? existing
-      : crypto.randomUUID();
+      : createAnalyticsId();
   store(VISITOR_KEY, visitorId);
   let session = resolveSession(Date.now(), stored(SESSION_KEY));
   const touchSession = () =>
     store(SESSION_KEY, JSON.stringify({ id: session.id, last: Date.now() }));
   touchSession();
-  let viewId = crypto.randomUUID(),
+  let viewId = createAnalyticsId(),
     seq = 0,
     started = performance.now();
   let visibleSince: number | null =
@@ -381,7 +388,7 @@ export function startAnalytics(): (() => void) | undefined {
   });
   on(window, 'pageshow', (event) => {
     if (!(event as PageTransitionEvent).persisted) return;
-    viewId = crypto.randomUUID();
+    viewId = createAnalyticsId();
     seq = 0;
     started = performance.now();
     dwell = depth = interactions = hidden = metric1 = metric2 = 0;

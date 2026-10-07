@@ -233,3 +233,9 @@ legacy days must be recomputed with the original-data backfill script while
 the legacy table still exists; an empty WAE day must never overwrite imported
 history. The additional guard has a regression test that refuses any database
 access on such a request.
+
+Final edge-case regressions cover list-row positions when earlier rows contain
+several links, UUID v4 generation in older webviews without `randomUUID`,
+normalized mood-tag entities (including invalid filters), reserved aggregation
+keys, erased visitor identifiers, and declared tool names beyond the saved UA
+length cap. The focused suites now pass 14 beacon cases and 20 Worker cases.

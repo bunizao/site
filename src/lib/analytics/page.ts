@@ -65,10 +65,10 @@ export function readAnalyticsPage(
   return {
     surface: (data.analyticsSurface ?? 'other') as SiteAnalyticsSurface,
     entity: (
-      data.analyticsEntity ||
+      data.analyticsEntity ??
       (data.analyticsSurface === 'mood_feed'
         ? new URLSearchParams(location.search).get('tag')
-        : '') ||
+        : '') ??
       ''
     ).slice(0, 96),
     path: location.pathname.slice(0, 256),
