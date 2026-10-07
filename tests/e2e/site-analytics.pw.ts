@@ -13,6 +13,7 @@ const ROUTES = [
   ['/blog/tag/systems', 'blog_tag'],
   ['/docs', 'docs'],
   ['/404', 'not_found'],
+  ['/missing-analytics-page', 'not_found'],
   ['/projects', 'projects'],
   ['/privacy', 'privacy'],
 ] as const;

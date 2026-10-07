@@ -116,7 +116,7 @@ The behavioral tests cover:
   rollover, bfcache reset, input trust, click names, regions and positions,
   query removal, synthetic-click rejection and concurrent fetch retries.
 - Production-origin browser payloads through a local intercepted server on
-  thirteen public routes at 320, 375 and 1440 pixels.
+  fourteen public routes at 320, 375 and 1440 pixels.
 - Desk panels opened by click and initial hash, buffered pagehide clicks,
   localhost and GPC suppression, portal tabs, surface filters, owner setting
   persistence, explicit API failures and cached report paint budgets.
@@ -124,10 +124,10 @@ The behavioral tests cover:
 The first full browser run had 359 passes and two failures in the old
 article-only performance assertions. Those assertions were updated to the new
 report UI. The focused rerun passed all ten tests without skipped tests.
-The final public unit suite passed 1,119 site tests plus 25 desk tests. The
-private full suite passed 2,102 tests before the final cutover-manifest
+The final public unit suite passed 1,119 site tests plus 27 desk tests. The
+private full suite passed 2,103 tests after the final cutover-manifest
 regression was added; the focused analytics, desk snapshot and production
-readiness run then passed all 59 tests. Both repositories passed type checks
+readiness run also passed all 59 tests. Both repositories passed type checks
 and production builds. The final public browser rerun passed all eight
 collection/portal tests; the corrected performance rerun passed both budgets.
 
@@ -199,3 +199,10 @@ views and 723 reads. These are a snapshot, not invariant future site totals.
 Do not describe this work as production-live until steps 1–4 have their real
 receipts. Do not describe the seven-day quality acceptance as passed until all
 seven Melbourne days have been observed.
+
+The final freshness check merged the current `origin/main` letter-receipt and
+dependency changes, then repeated the public type check, full unit suite,
+build and eight browser acceptance tests. The implementation commits are
+unsigned because 1Password SSH signing failed; no global signing setting was
+changed. Production still answered 404 on the unimplemented public collect
+route at the final read-only deployment check.
