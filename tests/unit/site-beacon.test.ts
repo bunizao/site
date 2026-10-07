@@ -273,6 +273,28 @@ describe('site beacon runtime', () => {
     expect(h.payloads[0].owner).toBe(true);
     expect(h.payloads[0].client.isNewVisitor).toBe(true);
   });
+  test('exit snapshots cannot revive an expired session or overwrite a newer tab session', () => {
+    const expired = harness(),
+      key = 'buxx:analytics:session',
+      prior = expired.storage.get(key)!;
+    expired.step(1800001);
+    expired.hide();
+    expect(expired.storage.get(key)).toBe(prior);
+    expect(
+      expired.context.resolveSession(
+        1800000000000 + 1800001,
+        expired.storage.get(key),
+      ).isEntry,
+    ).toBe(true);
+    const olderTab = harness();
+    const newer = JSON.stringify({
+      id: '99999999-9999-4999-8999-999999999999',
+      last: 1800000000000,
+    });
+    olderTab.storage.set(key, newer);
+    olderTab.hide();
+    expect(olderTab.storage.get(key)).toBe(newer);
+  });
   test('bfcache restore creates a fresh view and resets counters', () => {
     const h = harness();
     h.step(1000);

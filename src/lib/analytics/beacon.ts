@@ -154,9 +154,24 @@ export function startAnalytics(): (() => void) | undefined {
       : createAnalyticsId();
   store(VISITOR_KEY, visitorId);
   let session = resolveSession(Date.now(), stored(SESSION_KEY));
-  const touchSession = () =>
+  const saveSession = () =>
     store(SESSION_KEY, JSON.stringify({ id: session.id, last: Date.now() }));
-  touchSession();
+  const touchSession = () => {
+    try {
+      const current = JSON.parse(stored(SESSION_KEY) || 'null');
+      const idle = Date.now() - current?.last;
+      if (
+        current?.id === session.id &&
+        Number.isFinite(idle) &&
+        idle >= 0 &&
+        idle <= SITE_ANALYTICS_SESSION_IDLE_MS
+      )
+        saveSession();
+    } catch {
+      /* A stale view must not replace another tab's current session. */
+    }
+  };
+  saveSession();
   let viewId = createAnalyticsId(),
     seq = 0,
     started = performance.now();
@@ -401,7 +416,7 @@ export function startAnalytics(): (() => void) | undefined {
     restored = true;
     newVisitor = false;
     session = resolveSession(Date.now(), stored(SESSION_KEY));
-    touchSession();
+    saveSession();
     visibleSince = document.visibilityState === 'visible' ? started : null;
     send();
   });

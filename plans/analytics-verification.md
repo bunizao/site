@@ -239,3 +239,11 @@ several links, UUID v4 generation in older webviews without `randomUUID`,
 normalized mood-tag entities (including invalid filters), reserved aggregation
 keys, erased visitor identifiers, and declared tool names beyond the saved UA
 length cap. The focused suites now pass 14 beacon cases and 20 Worker cases.
+
+Session exit snapshots no longer revive a session that expired thirty minutes
+ago or overwrite a newer session created in another tab. A literal `(other)`
+dimension is merged into the folded tail without duplicate primary keys.
+Range and period visitors are counted in WAE directly, so monthly audience
+cardinality cannot exceed a response-row limit and block daily rollups. These
+queries, including empty-period counts, were checked against the live SQL API.
+The final focused coverage is 15 beacon cases and 21 Worker cases.

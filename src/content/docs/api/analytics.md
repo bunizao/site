@@ -229,3 +229,10 @@ The old `/api/analytics/event` stream remains active during the first fourteen d
 Sampling weights estimate event counts and medians. Unique identities use the distinct ids actually observed; sampling can undercount visitors, so sampled visitor figures are explicitly labelled rather than multiplying distinct people by a view sampling weight.
 
 WAE samples individual checkpoints within an index, so a view id does not preserve every event in that view. View metrics use cumulative maxima; clicks are deduplicated by view, carrying sequence, event time and action name. Page and visitor counts are observed distinct records, never checkpoint weights applied to already-grouped views. Raw write budgets use `SUM(_sample_interval)`. Sampled progress and click histories may be incomplete and are labelled. Cross-midnight checkpoints belong to the first observed timestamp of their view; daily rollups reread recent days to capture late progress. Session entry, exit and bounce use retained neighboring views of the same session.
+
+The collector rejects reserved aggregate identifiers (`*` as a page entity and
+`(other)` as a click name) and visitor identifiers erased by control-character
+normalization. When a long user agent would truncate a declared tool name,
+the saved capped value preserves that matched name in a bracketed suffix.
+Month and range distinct counts are computed inside WAE instead of returning
+one row per visitor.
