@@ -36,6 +36,7 @@ import {
 import {
   findPostForRoute,
   getPostLocale,
+  getCanonicalSlug,
   isTranslation,
   parsePostRoute,
   postRouteSegment,
@@ -201,7 +202,7 @@ const translated = isTranslation(post);
 ---
 
 <BlogLayout
-  analytics={{ surface: 'blog_post', entity: post.slug, locale: postLocale }}
+  analytics={{ surface: 'blog_post', entity: getCanonicalSlug(post), locale: postLocale }}
   title={post.title}
   description={postDescription}
   path={canonicalPath}

@@ -411,6 +411,20 @@ export function startAnalytics(): (() => void) | undefined {
         tMs: Math.round(performance.now() - started),
       });
   });
+  on(document, 'timeline-wheel:gesture', (event) => {
+    const detail = (event as CustomEvent<{ label: string; position: number }>)
+      .detail;
+    if (detail)
+      queue({
+        name: 'mood.wheel',
+        kind: 'button',
+        href: '',
+        region: 'timeline',
+        label: detail.label,
+        position: detail.position,
+        tMs: Math.round(performance.now() - started),
+      });
+  });
   on(document, 'analytics:panel', (event) => {
     const detail = (event as CustomEvent<{ id: string; source?: string }>)
       .detail;

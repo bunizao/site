@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { writeFileSync } from 'node:fs';
 import type { SiteAnalyticsCollectInput } from '@bunizao/contracts/analytics';
 
 const ROUTES = [
@@ -9,6 +10,7 @@ const ROUTES = [
   ['/mood/embed?id=1001', 'mood_embed'],
   ['/blog', 'blog_index'],
   ['/blog/demo-effects', 'blog_post'],
+  ['/blog/en/quiet-architecture', 'blog_post'],
   ['/blog/tags', 'blog_tags'],
   ['/blog/tag/systems', 'blog_tag'],
   ['/docs', 'docs'],
@@ -22,11 +24,29 @@ async function proxyProduction(
   baseURL: string,
 ): Promise<SiteAnalyticsCollectInput[]> {
   const payloads: SiteAnalyticsCollectInput[] = [];
+  const validationOrigin = process.env.ANALYTICS_VALIDATION_ORIGIN;
+  if (validationOrigin) {
+    if (
+      validationOrigin !==
+      'https://site-api-analytics-validation.bunizao.workers.dev'
+    )
+      throw new Error('Use the isolated analytics validation Worker');
+    await page.addInitScript(() =>
+      localStorage.setItem('buxx:analytics:owner', '1'),
+    );
+  }
   await page.route('https://buxx.me/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/analytics/collect') {
       payloads.push(route.request().postDataJSON());
-      await route.fulfill({ status: 204 });
+      if (validationOrigin) {
+        const response = await route.fetch({
+          url: `${validationOrigin}/api/analytics/collect`,
+          headers: { ...route.request().headers(), origin: 'https://buxx.me' },
+        });
+        expect(response.status()).toBe(204);
+        await route.fulfill({ response });
+      } else await route.fulfill({ status: 204 });
       return;
     }
     const response = await route.fetch({
@@ -58,11 +78,31 @@ for (const width of [320, 375, 1440])
         .find((p) => p.seq === 0 && p.page.surface === surface)!;
       expect(first.page.path).toBe(path.split('?')[0]);
       expect(first.client.vw).toBe(width);
+      if (surface === 'not_found') expect(first.page.entity).toBe(path);
       expect(first.progress.dwellMs).toBeLessThan(1000);
       expect(first.viewId).toMatch(/^[0-9a-f-]{36}$/);
       if (surface === 'blog_post')
-        expect(first.page.entity).toBe('demo-effects');
+        expect(first.page.entity).toBe(
+          path.includes('quiet-architecture')
+            ? 'quiet-architecture'
+            : 'demo-effects',
+        );
     }
+    if (process.env.ANALYTICS_VALIDATION_ORIGIN)
+      writeFileSync(
+        '/tmp/site-analytics-live-browser-receipt.json',
+        JSON.stringify(
+          payloads.map((p) => ({
+            viewId: p.viewId,
+            path: p.page.path,
+            surface: p.page.surface,
+            entity: p.page.entity,
+            locale: p.page.locale,
+            owner: p.owner,
+            webdriver: p.client.webdriver,
+          })),
+        ),
+      );
   });
 test('desk panels by click and hash become one named event; pagehide flushes buffered clicks', async ({
   page,

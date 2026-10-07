@@ -116,7 +116,7 @@ The behavioral tests cover:
   rollover, bfcache reset, input trust, click names, regions and positions,
   query removal, synthetic-click rejection and concurrent fetch retries.
 - Production-origin browser payloads through a local intercepted server on
-  fourteen public routes at 320, 375 and 1440 pixels.
+  fifteen public routes at 320, 375 and 1440 pixels.
 - Desk panels opened by click and initial hash, buffered pagehide clicks,
   localhost and GPC suppression, portal tabs, surface filters, owner setting
   persistence, explicit API failures and cached report paint budgets.
@@ -206,3 +206,30 @@ build and eight browser acceptance tests. The implementation commits are
 unsigned because 1Password SSH signing failed; no global signing setting was
 changed. Production still answered 404 on the unimplemented public collect
 route at the final read-only deployment check.
+
+Cloud CI also exercised the standalone component registry consumer. It exposed
+a site-only analytics import in the redistributed timeline wheel. The wheel
+now emits a generic gesture event without that dependency, and the site beacon
+consumes it separately. Translated blog pages use their canonical entity slug
+while preserving the page locale and path. Both changes have focused browser
+checks alongside registry consumer typechecking and building.
+
+A final browser-to-cloud run sent the real client beacons from all fifteen
+fixture pages through the isolated Worker. Independent SQL readback found all
+fifteen view ids, with matching surface, entity, path and locale; every one was
+owner traffic and none was sampled. The translated article used its canonical
+slug, and the genuinely missing URL used `not_found`. Reproduce with:
+
+```bash
+ANALYTICS_VALIDATION_ORIGIN=https://site-api-analytics-validation.bunizao.workers.dev bunx playwright test tests/e2e/site-analytics.pw.ts --project=chromium --workers=1 --grep '1440px'
+```
+
+This optional live mode only allows the named isolated Worker and explicitly
+marks the browser as owner before any beacon. The normal tests keep intercepting
+beacons locally and perform no cloud writes.
+
+Manual WAE reruns reject dates before the configured collection cutover. Those
+legacy days must be recomputed with the original-data backfill script while
+the legacy table still exists; an empty WAE day must never overwrite imported
+history. The additional guard has a regression test that refuses any database
+access on such a request.
