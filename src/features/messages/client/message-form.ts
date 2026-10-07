@@ -26,7 +26,7 @@ import {
   warmTurnstileToken,
 } from '@/features/comments/client/turnstile-token';
 import { fitBubble } from '@/features/messages/client/fit-bubbles';
-import { messageCopy as t } from '@/features/messages/copy';
+import { type MessageCopy, messageCopy as t } from '@/features/messages/copy';
 
 const ACTION = 'owner_message_create' as const;
 // The service refuses a dwell token older than a day, so re-mint well inside
@@ -48,7 +48,9 @@ interface CreateResult {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function initMessageForm(root: HTMLElement): void {
+type Receipts = Pick<MessageCopy, 'sentReplyable' | 'sentVerify' | 'sentAnonymous'>;
+
+export function initMessageForm(root: HTMLElement, receipts: Receipts = t): void {
   const form = root.querySelector<HTMLFormElement>('[data-message-form]');
   const formView = root.querySelector<HTMLElement>('[data-message-form-view]');
   const sentView = root.querySelector<HTMLElement>('[data-message-sent-view]');
@@ -335,10 +337,10 @@ export function initMessageForm(root: HTMLElement): void {
       dismissTurnstileChallenge(ACTION);
 
       sentBody.textContent = result.verificationSent
-        ? t.sentVerify
+        ? receipts.sentVerify
         : result.replyable
-          ? t.sentReplyable
-          : t.sentAnonymous;
+          ? receipts.sentReplyable
+          : receipts.sentAnonymous;
       fitBubble(sentBody);
       if (typing) typing.hidden = true;
       formView.hidden = true;
