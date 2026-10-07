@@ -24,8 +24,12 @@ const ROUTES = [
 async function proxyProduction(
   page: import('@playwright/test').Page,
   baseURL: string,
-): Promise<SiteAnalyticsCollectInput[]> {
+): Promise<{
+  payloads: SiteAnalyticsCollectInput[];
+  finish: () => Promise<void>;
+}> {
   const payloads: SiteAnalyticsCollectInput[] = [];
+  let pending = 0;
   const validationOrigin = process.env.ANALYTICS_VALIDATION_ORIGIN;
   if (validationOrigin) {
     if (
@@ -40,15 +44,24 @@ async function proxyProduction(
   await page.route('https://buxx.me/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/analytics/collect') {
-      payloads.push(route.request().postDataJSON());
-      if (validationOrigin) {
-        const response = await route.fetch({
-          url: `${validationOrigin}/api/analytics/collect`,
-          headers: { ...route.request().headers(), origin: 'https://buxx.me' },
-        });
-        expect(response.status()).toBe(204);
-        await route.fulfill({ response });
-      } else await route.fulfill({ status: 204 });
+      pending++;
+      const payload = route.request().postDataJSON();
+      try {
+        if (validationOrigin) {
+          const response = await route.fetch({
+            url: `${validationOrigin}/api/analytics/collect`,
+            headers: {
+              ...route.request().headers(),
+              origin: 'https://buxx.me',
+            },
+          });
+          expect(response.status()).toBe(204);
+        }
+        await route.fulfill({ status: 204 });
+        payloads.push(payload);
+      } finally {
+        pending--;
+      }
       return;
     }
     const response = await route.fetch({
@@ -56,7 +69,14 @@ async function proxyProduction(
     });
     await route.fulfill({ response });
   });
-  return payloads;
+  return {
+    payloads,
+    finish: async () => {
+      await page.goto('about:blank');
+      await page.waitForTimeout(100);
+      await expect.poll(() => pending).toBe(0);
+    },
+  };
 }
 for (const width of [320, 375, 1440])
   test(`all public surfaces emit isolated production-origin beacons at ${width}px`, async ({
@@ -64,7 +84,7 @@ for (const width of [320, 375, 1440])
     baseURL,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const payloads = await proxyProduction(page, baseURL!);
+    const { payloads, finish } = await proxyProduction(page, baseURL!);
     for (const [path, surface] of ROUTES) {
       const before = payloads.length;
       await page.goto(`https://buxx.me${path}`);
@@ -92,7 +112,8 @@ for (const width of [320, 375, 1440])
             : 'demo-effects',
         );
     }
-    if (process.env.ANALYTICS_VALIDATION_ORIGIN)
+    if (process.env.ANALYTICS_VALIDATION_ORIGIN) {
+      await finish();
       writeFileSync(
         '/tmp/site-analytics-live-browser-receipt.json',
         JSON.stringify(
@@ -107,12 +128,13 @@ for (const width of [320, 375, 1440])
           })),
         ),
       );
+    }
   });
 test('desk panels by click and hash become one named event; pagehide flushes buffered clicks', async ({
   page,
   baseURL,
 }) => {
-  const payloads = await proxyProduction(page, baseURL!);
+  const { payloads } = await proxyProduction(page, baseURL!);
   await page.goto('https://buxx.me/');
   await expect.poll(() => payloads.length).toBeGreaterThan(0);
   await page.locator('[data-open="projects"]').first().click();
@@ -165,7 +187,7 @@ test('localhost stays silent and Global Privacy Control suppresses production be
     window.dispatchEvent(new PageTransitionEvent('pagehide')),
   );
   expect(seen).toEqual([]);
-  const payloads = await proxyProduction(page, baseURL!);
+  const { payloads } = await proxyProduction(page, baseURL!);
   await page.addInitScript(() =>
     Object.defineProperty(navigator, 'globalPrivacyControl', {
       get: () => true,

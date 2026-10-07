@@ -247,3 +247,13 @@ Range and period visitors are counted in WAE directly, so monthly audience
 cardinality cannot exceed a response-row limit and block daily rollups. These
 queries, including empty-period counts, were checked against the live SQL API.
 The final focused coverage is 15 beacon cases and 21 Worker cases.
+
+Final exact-head local verification passed 1,123 public unit tests, 27 desk
+tests and 2,107 private Worker tests. All GitHub head checks passed on both
+PRs, including both public E2E shards. The Cloudflare Ghost Content timeout
+passed on retry and uploaded an unactivated public preview version. A final
+17-URL browser run, including normalized and invalid mood-tag queries, also
+passed against the live collector; its teardown drains writes before closing
+the browser context. SQL readback again verified all seventeen owner views.
+The latest collector version produced eleven accepted platform traces with
+2 ms p99/max CPU and no exceptions.
