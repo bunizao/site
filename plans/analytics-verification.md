@@ -312,3 +312,81 @@ rotation is rejected; all other deployed secret names must remain present.
 Resume retains the same base and owner IDs and the token-file option, but uses
 its already uploaded candidate without reading or uploading the secret again.
 Normal subsequent deployments omit this option.
+
+
+## First finished-day acceptance, 8 October
+
+The heartbeat began at 02:13 Melbourne time on 8 October (15:13 UTC on
+7 October). **Acceptance is blocked; production aggregation is not verified.**
+
+- Production readiness passed: the active API version remains
+  `c83303c4-713f-4fe4-9843-d18ec597c409`, required secrets are present, the
+  cutover lock is released and matches the active version, and the permanent
+  Notify fence and queue consumer remain healthy.
+- The collector rejected a malformed POST with 400 without storing an event.
+  Unauthenticated reports returned 401. A GET to the POST-only collector
+  returned 404; this is not evidence that collection disappeared.
+- D1 recorded `rollup_runs.day = 2026-10-07`, `status = failed`, `failures = 2`,
+  `error = analytics_sql_422`, last started at `2026-10-07T15:00:34.611Z`.
+  The day's `pv_daily`, `pv_dim_daily`, `click_daily` and `traffic_daily` each
+  contain zero rows. No manual rerun was invoked because the required first
+  successful cron run has not happened. Legacy backfill was not modified.
+- Live read-only reproduction found 356 observed views. The click query
+  constructed by `fetchWaeRange` included all 356 view IDs in one `IN (...)`.
+  Its ASCII SQL was 14,496 bytes. WAE returned 422 with the explicit error:
+  `SQL was excessively long, exceeded maximum length: 10000`.
+- The view query, session query and weighted-point queries succeeded with the
+  same credentials and dates. This isolates the failure to query length,
+  rather than a missing token, missing dataset or empty completed day.
+- A temporary read-only diagnostic split the ID lists into batches of 100.
+  All five dependent queries passed; maximum query size was 7,924 bytes.
+  It read the same 356 views and 93 deduplicated click records. Local aggregate
+  reconstruction produced 11 page rows, 74 dimension rows, one click row and
+  36 traffic rows. These were **not written to D1**.
+- Classification of the observed views: 48 human, 228 bot, 80 owner. The 48
+  human views include three mood embeds, so the whole-site human view total
+  is 45. The remaining human surfaces are mood feed 43, blog post one and
+  other one. No declared-tool UA was found among the human records.
+- Weighted writes for the Melbourne day were 1,004 view points and 277 click
+  points. RUM returned eight surface groups: mood feed 353, home 64, mood post
+  35, blog index 30, mood embed 13, blog post two, blog tag two and other one.
+  The day includes hours before collection activation. Its WAE/RUM ratio is
+  not a valid seven-full-day quality comparison.
+- Historical platform cron CPU/outcome traces were not captured in this run.
+  D1 proves failed rollup attempts; it does not establish the scheduled
+  invocation's CPU consumption or overall platform outcome.
+
+Required repair: bound the complete SQL size for both the view-ID click lookup
+and the session-ID neighboring-view lookup in
+`site-api/src/features/analytics/server/site-wae.ts`. Combine disjoint batches
+without losing deduplication, neighboring sessions or sampling metadata, and
+retain the existing result-cardinality checks. Regression cases must exercise
+hundreds of views, many sessions and the actual downstream query seam, with
+an enforced 10,000 SQL-length limit. Re-run the full completed-day cloud query
+and first-day cron/manual-rerun acceptance after deployment.
+
+A read-only reproduction from the private analytics checkout is:
+
+```bash
+bun --env-file=/Users/tutu/Dev/site/.env.local -e '
+import { readWaeRange } from "./src/features/analytics/server/site-wae";
+import { dayBounds } from "./src/features/analytics/server/site-time";
+const env = {
+  CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
+  CLOUDFLARE_ANALYTICS_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
+};
+const bounds = dayBounds("2026-10-07");
+try {
+  const raw = await readWaeRange({ env }, bounds.from, bounds.to);
+  console.log({ views: raw.views.length, clicks: raw.clicks.length });
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
+}
+'
+```
+
+The current implementation fails with `analytics_sql_422` before any D1 write.
+The acceptance automation is paused after recording this actionable blocker.
+This heartbeat explicitly prohibited deployment changes; no runtime code,
+credentials, production configuration or rollup rows were changed.
