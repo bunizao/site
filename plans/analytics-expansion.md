@@ -7,7 +7,7 @@ inside the Cloudflare ecosystem on the Free plan, as one detailed system
 they click ("分析页面的停留时间，然后点了什么"). Numbers must be precise, and the
 bot and agent filter must not misjudge real readers ("要尽量精确 … 误判断的风险").
 
-Status: **implemented and under rollout verification**. The original sections below describe the planned design. [Analytics verification](analytics-verification.md) records the actual implementation, reproducible commands, measured results and remaining production gates.
+Status: **implemented, merged and production collection activated; time-based acceptance pending**. The original sections below describe the planned design. [Analytics verification](analytics-verification.md) records the actual implementation, reproducible commands, measured results and remaining production gates.
 
 Implementation corrections validated against the live Cloudflare APIs:
 

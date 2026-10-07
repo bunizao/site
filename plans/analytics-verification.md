@@ -5,8 +5,9 @@ local verification, cloud verification and production activation.
 
 ## Current state
 
-- The public client and private Worker implementation are complete on their
-  feature branches. Production `site` and `site-api` have not been switched.
+- The public client and private Worker are merged and deployed in production.
+  Collection is active; the first finished-day cron acceptance and seven-day
+  quality observation remain pending.
 - Contracts 0.14.0 and 0.15.0 were published by the tag release workflow. The
   final dependency is 0.15.0, whose lifetime-reader field can be `null` when
   anonymous rollups cannot reconstruct it.
@@ -18,12 +19,13 @@ local verification, cloud verification and production activation.
   real collect path. It has no production routes, crons, notification queues
   or application secrets. All synthetic beacons identify themselves as owner
   and WebDriver traffic, so they cannot enter the human headline.
-- Production still needs a dedicated `CLOUDFLARE_ANALYTICS_TOKEN`, scoped to
-  Account Analytics Read on the owning account. Existing local credentials
-  proved that SQL and RUM can be queried, but their full scope was not
-  available for inspection; they were not copied into the Worker.
-- `SITE_ANALYTICS_CUTOVER_AT` remains unset until the actual public deployment.
-  No retirement or table-drop clock has been started.
+- The owner supplied the analytics token. WAE SQL and account RUM reads were
+  validated before adding `CLOUDFLARE_ANALYTICS_TOKEN` in one owned unactivated
+  Worker upload. Existing deployed secrets were inherited and checked.
+- The configured rollout marker is `2026-10-07T05:25:19Z`. The public client
+  became active at `2026-10-07T05:32:38.554273Z`; both fall on 7 October in
+  Melbourne. This is a partial collection day. Retirement clocks now run from
+  the configured marker; no destructive retirement action has been executed.
 
 ## Measured cloud results
 
@@ -196,16 +198,16 @@ views and 723 reads. These are a snapshot, not invariant future site totals.
    can be dropped only when a verified backfill manifest matches the cutover.
    These clocks are not marked complete in advance.
 
-Do not describe this work as production-live until steps 1–4 have their real
-receipts. Do not describe the seven-day quality acceptance as passed until all
-seven Melbourne days have been observed.
+Production deployment is active after steps 1–3. Finished-day aggregation
+acceptance still requires step 4. Do not describe the seven-day quality
+acceptance as passed until all seven full Melbourne days have been observed.
 
 The final freshness check merged the current `origin/main` letter-receipt and
 dependency changes, then repeated the public type check, full unit suite,
 build and eight browser acceptance tests. The implementation commits are
 unsigned because 1Password SSH signing failed; no global signing setting was
-changed. Production still answered 404 on the unimplemented public collect
-route at the final read-only deployment check.
+changed. Before activation, production answered 404 on the unimplemented public
+collect route. The production receipts below supersede that snapshot.
 
 Cloud CI also exercised the standalone component registry consumer. It exposed
 a site-only analytics import in the redistributed timeline wheel. The wheel
@@ -257,3 +259,56 @@ passed against the live collector; its teardown drains writes before closing
 the browser context. SQL readback again verified all seventeen owner views.
 The latest collector version produced eleven accepted platform traces with
 2 ms p99/max CPU and no exceptions.
+
+
+## Production receipts, 7 October
+
+- Public implementation PR [site #276](https://github.com/bunizao/site/pull/276)
+  merged as `129fb1ab3dfe2dbb8086859b560a03ff52244732`.
+- Private implementation PR [site-api #97](https://github.com/bunizao/site-api/pull/97)
+  merged as `aeaae7a18ce6c365848dfcc2f92fc6b564b77400`.
+- The first owned secret-bound API candidate was
+  `cf733e33-5d07-4704-a645-5c2e8be41616`. The merge build subsequently deployed
+  `c83303c4-713f-4fe4-9843-d18ec597c409` at 05:32:16 UTC. Standalone production
+  readiness passed against that final active version and its released lock.
+- The public merge build deployed `5529a7d0-ed20-4974-ab5a-e5f20400d148`
+  at 05:32:38 UTC. Both Cloudflare production build checks passed.
+- New deployment-tool regression coverage passed. The updated complete private
+  unit suite passed 2,114 tests; type checking and building passed. The public
+  production build used real Ghost content, passed the 39-post deployment
+  guard and retained 55 previous asset files.
+- Three explicit synthetic owner requests to
+  `https://buxx.me/api/analytics/collect` returned 204. Foreign Origin returned
+  403, preview Origin 204 without collection, oversize body 413, malformed
+  body 400 and unauthenticated reports 401. WAE independently returned the
+  synthetic view as `owner / owner_toggle` with its deduplicated clicks.
+- The real owner browser visited the deployed home and Mood panel. WAE readback
+  returned unsampled home and mood-feed views as `owner / owner_access`, with
+  visible dwell and named desk clicks. The portal's owner-browser exclusion
+  was enabled through its checkbox and its stored value was verified.
+- Production browser requests for Overview, Pages, Clicks, Sources, Audience,
+  Quality, Log and Visitor returned 200. The independent Listening and
+  Newsletter summaries also returned 200. Checks waited for each actual HTTP
+  response rather than accepting a loading screen or cached previous tab.
+- A production trace sample of 200 collector requests had maximum CPU 9 ms,
+  no exceptions and only `ok` outcomes. This includes initial post-deployment
+  traffic and owner checks. It does not establish the cron CPU budget.
+- The first scheduled finished-day acceptance is 8 October after 01:00
+  Melbourne time. The seven full quality days are 8–14 October; completion
+  cannot be assessed before 15 October. The 7 October partial day is excluded
+  from the seven-full-day quality comparison.
+- A follow-up in this chat runs daily at 02:10 local time, records acceptance
+  evidence, and reports meaningful failures or final completion. It does not
+  treat successful collection as proof of successful daily aggregation.
+
+The guarded first-token deployment command is:
+
+```bash
+bun run production:cutover --incremental --base-version-id <active-uuid> --analytics-token-file <secure-env-file> --execute
+```
+
+This option accepts only the previously absent analytics token. Existing token
+rotation is rejected; all other deployed secret names must remain present.
+Resume retains the same base and owner IDs and the token-file option, but uses
+its already uploaded candidate without reading or uploading the secret again.
+Normal subsequent deployments omit this option.
