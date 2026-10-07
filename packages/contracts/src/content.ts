@@ -7,7 +7,8 @@ export interface BlogStats {
   generatedAt: string;
   /** Null until the first event has been recorded. */
   since: string | null;
-  totals: { reads: number; readers: number; completed: number };
+  /** Lifetime reader counts are unavailable after identity-free rollup cutover. */
+  totals: { reads: number; readers: number | null; completed: number };
   posts: {
     slug: string;
     reads: number;

@@ -212,7 +212,7 @@ const accentInk = textOnAccent(accentFill);
                 it -- Turnstile, the dwell token and the POST are all script --
                 and a native submit before then would reload the page and take
                 the draft with it. */}
-            <button class="send" type="submit" data-message-submit disabled>
+            <button data-track="message.send" class="send" type="submit" data-message-submit disabled>
               {/* The label is the button's accessible name and nothing else.
                   It still carries the busy state -- message-form.ts swaps its
                   text -- so a screen reader hears "sending" while sight reads
@@ -255,7 +255,7 @@ const accentInk = textOnAccent(accentFill);
 
       <div class="msg msg--block msg--turn" data-message-sent-view hidden tabindex="-1">
         <p class="bubble bubble--them" data-message-sent-body></p>
-        <button class="again" type="button" data-message-again>{t.sendAnother}</button>
+        <button data-track="message.again" class="again" type="button" data-message-again>{t.sendAnother}</button>
       </div>
     </div>
   </main>

@@ -63,7 +63,7 @@ const intro =
   <button
     type="button"
     class="sub-trigger"
-    data-subscribe-toggle={id}
+    data-track={variant === 'mood' ? 'mood.subscribe_open' : 'post.subscribe_open'} data-subscribe-toggle={id}
     data-tip={label}
     aria-haspopup="dialog"
     aria-expanded="false"
@@ -220,7 +220,7 @@ const intro =
               </a>
             )}
           </div>
-          <button type="submit" class="sub-submit" data-sub-submit>
+          <button type="submit" class="sub-submit"  data-track={variant === 'mood' ? 'mood.subscribe_submit' : 'post.subscribe_submit'} data-sub-submit>
             <span data-sub-submit-text>{t.submit}</span>
             <svg class="sub-submit__arrow" data-sub-submit-arrow viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
             <span class="sub-spinner is-hidden" data-sub-submit-spinner></span>

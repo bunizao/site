@@ -60,6 +60,7 @@ export function mountTimelineWheel(
   // The wheel doubles as a back-to-top control: clicking it returns to the
   // feed top, and the existing scroll sync winds the dial back as you go.
   const topButton = wheel.querySelector('[data-timeline-top]') as HTMLButtonElement | null;
+  if (topButton) topButton.dataset.trackManual = '';
   const handleTopClick = (): void => {
     // A drag releases with a click event; only a press that never moved counts.
     if (suppressClick) {
@@ -67,6 +68,7 @@ export function mountTimelineWheel(
       return;
     }
 
+    document.dispatchEvent(new CustomEvent('timeline-wheel:gesture', { detail: { label: 'top', position: gestureDays(readProgress(), 0) } }));
     const topHref = getMoodFeedTopHref(new URL(window.location.href));
     if (topHref) {
       window.location.assign(topHref);
@@ -166,6 +168,13 @@ export function mountTimelineWheel(
   wheel.addEventListener('pointerleave', handlePointerLeave);
 
   let dateGroups: HTMLElement[] = [];
+  const gestureDays = (from: number, to: number): number => {
+    const first = dateGroups[Math.round(from)]?.dataset.date;
+    const last = dateGroups[Math.round(to)]?.dataset.date;
+    if (!first || !last) return -1;
+    const distance = Math.abs(Date.parse(`${last}T00:00:00Z`) - Date.parse(`${first}T00:00:00Z`)) / 86400000;
+    return Number.isFinite(distance) ? Math.min(9999, Math.round(distance)) : -1;
+  };
   let notches: HTMLElement[] = [];
   let currentRotation = 0;
   let targetRotation = 0;
@@ -933,6 +942,7 @@ export function mountTimelineWheel(
     // A press that never moved is a click, and click still means back to top.
     if (!dragMoved) return;
     suppressClick = true;
+    if (!cancelled) document.dispatchEvent(new CustomEvent('timeline-wheel:gesture', { detail: { label: dragThreshold === HANDOVER_THRESHOLD ? 'swipe' : 'drag', position: gestureDays(dragStartProgress, dragProgress) } }));
     release(cancelled ? 0 : dragSpeed());
   };
 
@@ -980,6 +990,7 @@ export function mountTimelineWheel(
       step > 0 ? Math.floor(dragProgress) + 1 : Math.ceil(dragProgress) - 1
     );
     setEngaged(true);
+    document.dispatchEvent(new CustomEvent('timeline-wheel:gesture', { detail: { label: 'key', position: gestureDays(dragProgress, target) } }));
     animateProgressTo(target, prefersReducedMotion ? 0 : 220, easeOutCubic);
   };
 

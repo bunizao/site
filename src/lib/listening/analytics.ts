@@ -41,7 +41,7 @@ const COMPLETION_RATIO = 0.98;
 const FLUSH_DEDUPE_MS = 1_000;
 
 export function inferListeningSurface(pathname: string): ListeningAnalyticsSurface {
-  if (pathname === '/') return 'home';
+  if ((pathname === '/' || pathname === '/legacy')) return 'home';
   if (pathname === '/blog' || pathname.startsWith('/blog/')) return 'blog';
   if (pathname === '/mood' || pathname.startsWith('/mood/')) return 'mood';
   if (pathname === '/components' || pathname.startsWith('/components/')) return 'components';

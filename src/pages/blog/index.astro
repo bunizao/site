@@ -49,7 +49,7 @@ const earlier = blog.copy[blog.locale.blog].earlier;
   {groups.map((group) => (
     <section class="blog-year" id={`y${group.year}`} hidden={group.posts.every((post) => folded(post.slug)) || undefined}>
       <h2 class="blog-year__heading">{group.year}</h2>
-      <ul class="blog-list">
+      <ul data-track-list class="blog-list">
         {group.posts.map((post) => (
           <PostRow post={post} englishTitle={englishTitles.get(post.slug)} otherLanguages={otherLanguages.get(post.slug)} hidden={folded(post.slug)} />
         ))}
@@ -58,7 +58,7 @@ const earlier = blog.copy[blog.locale.blog].earlier;
   ))}
 
   {listedPosts.length > BATCH && (
-    <button class="blog-earlier" type="button" data-blog-earlier data-template={earlier} hidden>
+    <button data-track="blog.earlier" class="blog-earlier" type="button" data-blog-earlier data-template={earlier} hidden>
       <span class="blog-earlier__label">{earlier.replace('{n}', String(listedPosts.length - BATCH))}</span>
       <span aria-hidden="true">↓</span>
     </button>

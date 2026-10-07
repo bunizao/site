@@ -62,7 +62,7 @@ export function InstallTabs({ spec }: { spec: InstallSpec }) {
 
   const labels = (inked: boolean) =>
     MANAGERS.map((m, i) => (
-      <button
+      <button data-track="components.install_tab"
         key={m}
         type="button"
         ref={inked ? undefined : (el) => { btnRefs.current[i] = el; }}

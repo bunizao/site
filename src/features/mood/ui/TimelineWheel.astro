@@ -31,7 +31,7 @@ const { compact = false } = Astro.props;
   </div>
   <!-- The wheel is both readout and input. Click winds back to the top of the
        feed; drag scrubs the timeline by date; arrow keys step one date. -->
-  <button
+  <button data-track="mood.wheel"
     type="button"
     class="timeline-wheel-top"
     data-timeline-top

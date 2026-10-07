@@ -1,3 +1,4 @@
+import { analyticsClick } from '@/lib/analytics/events';
 import { createMoodGalleryElement, initMoodGalleries } from '@/features/mood/client/gallery';
 import {
   getMoodDetailHref,
@@ -260,6 +261,8 @@ export function createFeedRenderer({
     if (shouldLink) {
       element.className = 'mood-item mood-item--clickable';
       element.dataset.href = detailHref;
+      element.dataset.track = 'mood.open';
+      element.dataset.trackManual = '';
       element.setAttribute('role', 'link');
       element.tabIndex = 0;
     } else {
@@ -757,6 +760,7 @@ export function createFeedRenderer({
     const href = item.dataset.href;
     if (href) {
       rememberMoodReturnTarget(item.dataset.moodId ?? getMoodDetailIdFromHref(href));
+      analyticsClick('mood.open', { kind: 'link_internal', href, region: 'feed', position: Array.from(list.querySelectorAll('[data-mood-id]')).indexOf(item) });
       window.location.href = href;
     }
   };

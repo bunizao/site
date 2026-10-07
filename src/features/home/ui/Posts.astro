@@ -61,13 +61,13 @@ const stamp = (iso: string): string => {
   </a>
 
   {posts.length > 0 && (
-    <div class="post-list" data-writing-post-list>
+    <div class="post-list" data-writing-post-list data-track-list>
       {posts.map((post, index) => {
         const tag = post.tags?.find((t) => t.visibility === 'public');
         return (
           <a
             href={postPath(post.slug)}
-            class="post-item"
+            data-track="legacy.post" class="post-item"
             data-reveal-item
             style={`--reveal-delay: ${800 + index * 60}ms; --reveal-duration: 400ms`}
           >

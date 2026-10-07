@@ -132,7 +132,7 @@ const REVISIT: Array<[link: string, title: string, content: string]> = [
   ['Mascot', 'Mascot', `document.querySelector('[aria-labelledby=mascot-runtime] li')`],
   ['Mood embed', 'Mood embed', `document.querySelector('iframe[title="Mood embed preview"]')`],
   ['Mood', 'Mood', `document.querySelector('[aria-labelledby=mood-ingest] li')`],
-  ['Analytics', 'Analytics', `document.querySelector('main a[data-slug]')`],
+  ['Analytics', 'Analytics', `document.querySelector('main table tbody tr')`],
   ['Activity', 'Activity', `document.querySelector('main ol li, main [role=table] [role=row], main [data-row-id]')`],
   ['Reactions', 'Reactions', `document.querySelector('[aria-label="Reactions, newest first"]')`],
   ['Insights', 'Insights', `document.querySelector('main section[aria-label=Overview]')`],
@@ -806,7 +806,7 @@ test.describe('portal click-to-paint', () => {
     expect(misses).toEqual([]);
   });
 
-  test('subscriber and article panes, Back, the composer and the ban dialog meet their budgets', async ({ page }) => {
+  test('subscriber panes, report tabs, Back, the composer and the ban dialog meet their budgets', async ({ page }) => {
     test.setTimeout(180_000);
     await openPortal(page);
     const ms = (paint: Paint): number => paint.ms ?? Number.POSITIVE_INFINITY;
@@ -821,7 +821,6 @@ test.describe('portal click-to-paint', () => {
     const subscribers = `document.querySelector('[aria-label=Subscribers] [data-row-id]')`;
     const broadcasts = `document.querySelector('[aria-label=Broadcasts] [data-row-id]')`;
     const subscriberPane = 'aside[aria-label="Subscriber detail"]';
-    const articlePane = 'aside[aria-label="Article analytics"]';
 
     // A different row each round, so its detail is never cached.
     await show('Subscribers', 'Subscribers', subscribers);
@@ -889,20 +888,18 @@ test.describe('portal click-to-paint', () => {
       await page.waitForTimeout(600);
     }
 
-    // A different article each round, so its detail is never cached.
-    await show('Analytics', 'Analytics', `document.querySelector('main a[data-slug]')`);
-    for (let round = 0; round < 3; round += 1) {
-      const link = page.locator('main a[data-slug]').nth(round);
-      // The row's name: the post's title, or its slug when Ghost has none.
-      const name = (await link.locator('span').first().textContent())!;
-      const titled = `document.querySelector('${articlePane} h2')?.textContent === ${JSON.stringify(name)}`;
-      const [header, detail] = await timedEach(page, [titled, `${titled} && ${SETTLED(articlePane)}`], () => link.click());
-      times.article.push(ms(header));
-      times.articleDetail.push(ms(detail));
+    // Report tabs retain their data on revisits, without an article-only pane.
+    await show('Analytics', 'Analytics', `document.querySelector('main table tbody tr')`);
+    for (const report of ['Pages', 'Clicks', 'Audience']) {
+      const tabs = page.getByRole('navigation', { name: 'Analytics reports' });
+      const selectedReport = report === 'Pages' ? 'pages' : report === 'Clicks' ? 'clicks' : 'audience';
+      const loaded = `new URLSearchParams(location.search).get('report') === ${JSON.stringify(selectedReport)} && document.querySelector('main table tbody tr') && !document.querySelector('main [role="alert"]')`;
+      const [header, detail] = await timedEach(page, [loaded, `${loaded} && ${SETTLED('main')}`], async () => {
+        await page.evaluate(() => window.__perf.markInput());
+        await tabs.getByRole('button', { name: report, exact: true }).click();
+      });
+      times.article.push(ms(header)); times.articleDetail.push(ms(detail));
       await page.waitForTimeout(800);
-      await page.keyboard.press('Escape');
-      await expect(page.locator(articlePane)).toHaveCount(0);
-      await page.waitForTimeout(600);
     }
 
     // n on Bans: the manual-ban dialog with its value field.

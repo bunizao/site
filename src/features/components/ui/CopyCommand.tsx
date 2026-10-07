@@ -31,7 +31,7 @@ export function CopyCommand({ command }: CopyCommandProps) {
   return (
     <div className="copy-command">
       <code className="copy-command-text">{command}</code>
-      <button
+      <button data-track="components.copy"
         type="button"
         className="copy-btn"
         onClick={copy}

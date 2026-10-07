@@ -361,6 +361,7 @@ export default function ReactionBar({
           </span>
 
           <button
+            data-track="post.reaction"
             type="button"
             onClick={like}
             aria-pressed={liked}

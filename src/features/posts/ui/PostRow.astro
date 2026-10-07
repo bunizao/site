@@ -53,7 +53,7 @@ const languageMark = otherLanguages.length > 0
   data-hero={heroPreview ?? undefined}
   data-hero-alt={post.featureImageAlt ?? post.title}
 >
-  <a class="blog-row__link" href={postPath(post.slug)}>
+  <a data-track="blog.post" class="blog-row__link" href={postPath(post.slug)}>
     <h2
       class="blog-row__title"
       data-vt-name={titleVT}
@@ -75,7 +75,7 @@ const languageMark = otherLanguages.length > 0
     {metaTags.length > 0 && (
       <span class="blog-row__tags">
         {metaTags.map((tag) => (
-          <a class="blog-row__tag" href={tagPath(tag.slug)}>{tag.name}</a>
+          <a data-track="blog.tag" class="blog-row__tag" href={tagPath(tag.slug)}>{tag.name}</a>
         ))}
       </span>
     )}

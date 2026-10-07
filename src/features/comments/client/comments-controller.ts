@@ -608,7 +608,7 @@ export function initCommentsController(): void {
     moreButton = el('button', {
       type: 'button',
       class: 'blog-comments__more-btn',
-      'data-load-more': '',
+      'data-load-more': '', 'data-track': 'post.comment_more',
     }, [el('span', {}, [t.loadMore])]);
     const wrap = el('div', { class: 'blog-comments__more' }, [moreButton]);
     list.append(wrap);
@@ -1382,14 +1382,14 @@ export function initCommentsController(): void {
       // CommentsSection.astro, which renders the same row server-side.
       const acts = el('span', { class: 'blog-comment__acts' }, [
         el('button', {
-          type: 'button', class: 'blog-comment__act blog-comment__act--like', 'data-comment-like': '',
+          type: 'button', class: 'blog-comment__act blog-comment__act--like', 'data-comment-like': '', 'data-track': 'post.comment_like',
           'aria-pressed': comment.liked ? 'true' : 'false', 'aria-label': t.likeLabel(comment.author),
         }, [heartIcon(), el('span', { class: 'blog-comment__act-count', 'data-like-count': '' }, [String(comment.likes ?? 0)])]),
       ]);
       // A locked thread keeps its likes and loses every Reply; only its root
       // says why, once, where the button was.
       if (!comment.locked) {
-        acts.append(el('button', { type: 'button', class: 'blog-comment__act', 'data-reply-to': comment.id, 'data-reply-name': comment.author }, [parseStaticSvg(REPLY_ICON_SVG), t.reply]));
+        acts.append(el('button', { type: 'button', class: 'blog-comment__act', 'data-track': 'post.comment_reply', 'data-reply-to': comment.id, 'data-reply-name': comment.author }, [parseStaticSvg(REPLY_ICON_SVG), t.reply]));
       } else if (!comment.isReply) {
         acts.append(el('span', { class: 'blog-comment__closed' }, [t.repliesClosed]));
       }

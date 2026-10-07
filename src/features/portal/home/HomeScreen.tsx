@@ -43,7 +43,8 @@ import { ALL_ACTIVITY, flattenFeed, prefetchActivityFeed, useActivityFeed } from
 import { entryTarget, targetTitle } from '../activity/model';
 import { Dot, PRESSABLE, type Tone } from '../activity/table';
 import { denseDays } from '../analytics/charts';
-import { DEFAULT_RANGE, prefetchSummary, useSummary } from '../analytics/data';
+import { DEFAULT_RANGE } from '../analytics/data';
+import { prefetchSiteReport, useSiteReport } from '../analytics/site-data';
 import { formatCount, lastUtcDays } from '../analytics/format';
 import { prefetchHomeReads, useAudit, useBroadcasts, useCommentDaily, useNotifyGate, useOldestHeld, useReleaseGate } from './data';
 
@@ -64,7 +65,7 @@ export function prefetch(client: QueryClient): Promise<unknown> {
   return Promise.all([
     prefetchHomeReads(client),
     prefetchCommentList(client, HELD),
-    prefetchSummary(client, DEFAULT_RANGE),
+    prefetchSiteReport(client, new URLSearchParams()),
     prefetchActivityFeed(client, ALL_ACTIVITY),
     prefetchLockdown(client),
     prefetchSitePolicy(client),
@@ -778,12 +779,12 @@ function confirmationsByDay(events: readonly AuditEntry[], days: readonly string
 }
 
 function LastWeek() {
-  const views = useSummary(DEFAULT_RANGE);
+  const views = useSiteReport(new URLSearchParams());
   const comments = useCommentDaily();
   const audit = useAudit();
   const days = lastUtcDays(14);
 
-  const viewValues = views.data ? denseDays(views.data.daily, DEFAULT_RANGE).slice(-14).map((point) => point.views) : null;
+  const viewValues = views.data ? denseDays(views.data.pages.filter(row => row.surface === '*').map(row => ({ day: row.day, views: row.views, reads: row.reads, uniqueVisitors: row.visitors, avgReadMs: row.medianDwellMs, completionRate: row.views ? row.completions / row.views : 0 })), DEFAULT_RANGE).slice(-14).map((point) => point.views) : null;
   const commentValues = comments.data
     ? days.map((day) => comments.data.find((entry) => entry.date === day)?.count ?? 0)
     : null;
