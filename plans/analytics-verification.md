@@ -6,8 +6,9 @@ local verification, cloud verification and production activation.
 ## Current state
 
 - The public client and private Worker are merged and deployed in production.
-  Collection is active; the first finished-day cron acceptance and seven-day
-  quality observation remain pending.
+  Collection is active. The SQL-length failure was repaired on 9 October, and
+  the 7–8 October days were reconstructed and checked for idempotency. The next
+  scheduled aggregation and seven-day quality observation remain pending.
 - Contracts 0.14.0 and 0.15.0 were published by the tag release workflow. The
   final dependency is 0.15.0, whose lifetime-reader field can be `null` when
   anonymous rollups cannot reconstruct it.
@@ -317,7 +318,7 @@ Normal subsequent deployments omit this option.
 ## First finished-day acceptance, 8 October
 
 The heartbeat began at 02:13 Melbourne time on 8 October (15:13 UTC on
-7 October). **Acceptance is blocked; production aggregation is not verified.**
+7 October). **Historical failure: repaired on 9 October as recorded below.**
 
 - Production readiness passed: the active API version remains
   `c83303c4-713f-4fe4-9843-d18ec597c409`, required secrets are present, the
@@ -390,3 +391,60 @@ The current implementation fails with `analytics_sql_422` before any D1 write.
 The acceptance automation is paused after recording this actionable blocker.
 This heartbeat explicitly prohibited deployment changes; no runtime code,
 credentials, production configuration or rollup rows were changed.
+
+
+## SQL-length repair and recovery, 9 October
+
+The same unresolved query-length fault was retried by the hourly Worker cron.
+Before repair, 7 October had 23 failures and 8 October had 16, both with
+`analytics_sql_422`. Pausing the local acceptance automation did not disable
+production cron retries.
+
+- Private repair PR [site-api #98](https://github.com/bunizao/site-api/pull/98)
+  merged as `1582bc15a9489cdba243aea0764d7d628d189e9d`. Dependent click and
+  neighboring-session queries now batch by the full encoded SQL size, with
+  a 9,000-byte batching budget beneath WAE's 10,000 limit. The combined
+  10,000-result-row limit remains enforced across batches.
+- Six new public-seam regression cases failed on the old implementation and
+  passed after repair. They cover 356 and 2,000 views, neighboring sessions,
+  sampling metadata, UTF-8 filters, combined cardinality limits and rejecting
+  oversized SQL before a request. The full private suite passed 2,120 tests;
+  type checking, building and the repair PR's CI passed.
+- The owned repair candidate was `22427a42-e069-4ead-af59-9abe3cc51886`.
+  The inherited secrets, released deployment lock and existing service checks
+  passed. The main build subsequently uses the same guarded deployment path.
+- Real complete-day WAE reads now succeed. Maximum SQL size was 8,997 bytes.
+  7 October returned 356 observed views and 93 deduplicated clicks, including
+  sampled histories. 8 October returned 278 views and 34 clicks without
+  sampling. Weighted write counts were 1,004/277 and 562/39 respectively.
+- Authenticated requests through the existing owner's session rebuilt both
+  days successfully. `rollup_runs` is `done`, failures zero and error null
+  for each. No credentials were created or rotated.
+- Independent readback compared every anonymous column in all eight day/table
+  combinations with a fresh local aggregate of retained WAE data. Every row
+  matched. Day 7 has 11 page, 74 dimension, one click and 36 traffic rows;
+  day 8 has 28 page, 187 dimension, 19 click and 15 traffic rows.
+- Repeating both authenticated day requests left all eight canonical table
+  hashes and row counts unchanged. This verifies replacement idempotency
+  against stable retained data rather than merely checking HTTP 200.
+- The deployed portal loaded the 7–8 October range with a table and no
+  `analytics_report_unavailable` error.
+
+Remaining acceptance limits:
+
+- These are authenticated manual reconstructions. The next genuine scheduled
+  aggregation of a newly finished day still needs its own evidence.
+- Five observed HTTP rollup traces returned 200 with no exceptions, but used
+  46–84 ms CPU. They include request authentication and are not a cron CPU
+  measurement. They exceed the plan's 10 ms Free CPU target, so the scheduled
+  CPU acceptance remains open; successful HTTP responses do not prove that
+  target or a cron SLA. No paid-plan upgrade was made.
+- The first full-day quality comparison remains open. For 8 October, human
+  WAE/RUM ratios included mood feed 145/263 (0.55), home 13/39 (0.33), mood
+  detail 8/54 (0.15), and blog articles 15/17 (0.88). Embeds were 10/4 (2.50)
+  and remain separate. WAE observed 201 human, 75 bot and two owner views.
+  RUM's load basis and declared-traffic exclusion differ; these discrepancies
+  must be investigated rather than labelled as a passed quality check.
+- Daily acceptance monitoring resumes after the SQL repair. It must preserve
+  these open CPU and quality checks and report meaningful new evidence rather
+  than repeat the resolved SQL-length fault.
