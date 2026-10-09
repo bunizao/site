@@ -1,9 +1,8 @@
-/** Site playback totals in a rolling seven-day window, not Apple Music history. */
-export interface ListeningStats {
-  generatedAt: string;
-  window: { from: string; to: string };
-  totals: { plays: number };
-  topArtist: { name: string; plays: number } | null;
+/** The owner's Last.fm scrobbles in the seven days before the read. */
+export interface ListeningWeek {
+  plays: number;
+  /** Most scrobbled artist; null when nothing was scrobbled. */
+  topArtist: string | null;
 }
 
 export interface ListeningAccent {
