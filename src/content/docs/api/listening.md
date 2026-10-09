@@ -1,50 +1,16 @@
 ---
 title: Listening API
-description: The home page's now-playing track, how its Last.fm read is cached, and how the player reports playback.
+description: The home page's now-playing track and Last.fm week, how that read is cached, and how the player reports playback.
 group: API
 order: 2
 ---
 
-The Listening API returns the current track and a snapshot of visitor playback
-counts. Its write endpoint records what a visitor did with the site's player.
+The Listening API returns the current track and the owner's Last.fm week.
+Its write endpoint records what a visitor did with the site's player.
 
 The now-playing endpoint **always returns a track**. It has no empty state and no
 `404`. When Last.fm is unconfigured or unreachable, it serves a hardcoded demo
 track with a `200`. Check the `source` field before you trust the content.
-
-## Playback counts
-
-```
-GET /api/v2/listening/stats
-```
-
-Public aggregates of playback in the site's own player, not the owner's
-Apple Music or Last.fm listening history. The snapshot uses sessions started
-in the rolling seven days before `generatedAt`: `window.from` is inclusive
-and `window.to` is exclusive. Future sessions are excluded.
-
-```json
-{
-  "generatedAt": "2026-10-04T19:00:00.000Z",
-  "window": { "from": "2026-09-27T19:00:00.000Z", "to": "2026-10-04T19:00:00.000Z" },
-  "totals": { "plays": 83 },
-  "topArtist": { "name": "Example artist", "plays": 21 }
-}
-```
-
-`plays` sums the stored cumulative `play_count` per playback session.
-Checkpoints update that session's maximum, so repeated beacons do not
-duplicate plays. Requests that never reached playback contribute zero.
-`topArtist` groups these plays by trimmed artist name, breaking tied counts
-by name. Missing or blank names contribute to the total but not the ranking;
-`topArtist` is `null` when there is no eligible named artist.
-
-The request reads only KV, refreshed daily at 19:00 UTC. Successful responses
-use `Cache-Control: public, max-age=300` and `Cloudflare-CDN-Cache-Control:
-public, max-age=3600, stale-while-revalidate=86400`. Missing, invalid or
-unavailable snapshots return uncached `503` with `error.code:
-"listening_stats_unavailable"`. Only the window, counts and top artist are
-public; no visitor identifiers, locations, IPs or playback records are exposed.
 
 ## Now playing
 
@@ -78,10 +44,25 @@ No parameters, no auth. Rate limit: 60 requests / 60s (advertised only; see
     "isNowPlaying": true,
     "playedAt": ""
   },
+  "week": { "plays": 180, "topArtist": "Kanye West" },
   "configured": true,
   "source": "lastfm"
 }
 ```
+
+### The week
+
+`week` is the owner's Last.fm listening in the rolling seven days before the
+read, not playback in the site's own player. `plays` is Last.fm's scrobble
+total for that window, and `topArtist` is the most scrobbled artist (Last.fm's
+`7day` period), or `null` when nothing was scrobbled. Last.fm scrobbles a song
+about halfway through, so `plays` can rise while the same track is still
+playing.
+
+`week` is `null` whenever the track is not live: the demo track, the last
+known track served after a Last.fm failure, or a Last.fm week read that failed
+while the track read worked. It is cached with the track, so it is at most as
+stale as the track.
 
 ### Track fields
 
