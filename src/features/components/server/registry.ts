@@ -166,6 +166,7 @@ async function buildListeningItem(): Promise<RegistryItem> {
     .replace("@/assets/apple-logo.svg?raw", '@/lib/apple-logo.svg?raw')
     .replace("@/lib/listening/markup", '@/lib/listening-markup')
     .replace("@/lib/listening/controller", '@/lib/listening-controller')
+    .replace("@/lib/listening/week", '@/lib/listening-week')
     .replace("@/styles/listening.css", '@/lib/listening.css');
   const removeSiteAnalytics = (content: string) => content.replace(
     `import {
@@ -227,6 +228,12 @@ const inferListeningSurface = (_pathname: string): 'other' => 'other';`,
       await readRegistryFile('lib/musickit/player.ts', 'registry:lib'),
       musicKitTypes,
       await readRegistryFile('assets/apple-logo.svg', 'registry:lib'),
+      await readRepoRegistryFile(
+        'src/lib/listening/week.ts',
+        'lib/listening-week.ts',
+        'registry:lib',
+        (content) => content.replace("@bunizao/contracts/listening", '@/lib/listening-types')
+      ),
     ],
   };
 }
