@@ -1,3 +1,4 @@
+import { analyticsClick } from '@/lib/analytics/events';
 import {
   asText,
   buildCommentContentFragment,
@@ -175,6 +176,7 @@ export function createFeedCommentsPopoverController(
     const promise = (async () => {
       try {
         const query = new URLSearchParams({ postId });
+        analyticsClick('mood.comments_peek', { href: `/mood/${postId}`, region: 'feed' });
         const response = await fetch(`/api/comments?${query}`);
         if (!response.ok) throw new Error(`Failed to fetch comments: ${response.status}`);
         const data = await response.json() as { comments?: CommentPreviewData[] };

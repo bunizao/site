@@ -1,3 +1,4 @@
+import { analyticsMetric } from '@/lib/analytics/events';
 import type { Comment, CommentListResult, CommentsMode } from '@bunizao/contracts/comments';
 import {
   asText,
@@ -370,6 +371,7 @@ function addComments(comments: CommentData[], append: boolean): number {
   }
   linkReplyQuotes();
 
+  analyticsMetric(2, loadedCommentIds.size);
   return uniqueComments.length;
 }
 

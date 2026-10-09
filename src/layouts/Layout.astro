@@ -1,7 +1,11 @@
 ---
 import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
+import SiteAnalytics from '@/components/SiteAnalytics.astro';
+import { inferAnalyticsPage, analyticsEnabled, type AnalyticsPage } from '@/lib/analytics/page';
+
 interface Props {
+  analytics?: AnalyticsPage;
   title: string;
   /** `<html lang>`. Most surfaces are English; the localized ones pass the
       language the page negotiated, so assistive tech and the client modules
@@ -148,6 +152,8 @@ const navbarSectionActiveHoldMs = getPeekRuntimeSlot('navbar.section.active').ho
 const navbarFastScrollHoldMs = getPeekRuntimeSlot('navbar.brand.hover').holdMs ?? 1000;
 const navbarIdleTimeoutAnimation = getPeekRuntimeSlotKey('navbar.idle-timeout');
 const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
+const analyticsPage = Astro.props.analytics ?? inferAnalyticsPage(Astro.url.pathname);
+const trackAnalytics = analyticsEnabled(Astro.url.pathname);
 ---
 
 <!DOCTYPE html>
@@ -284,8 +290,9 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
     {/* A page's own head, for what has to run before first paint. */}
     <slot name="head" />
   </head>
-  <body>
+  <body data-analytics-surface={analyticsPage.surface} data-analytics-entity={analyticsPage.entity} data-analytics-locale={analyticsPage.locale ?? lang}>
     <PerformanceDebugPanel />
+    {trackAnalytics && <SiteAnalytics />}
     <div class="spotlight-overlay" data-spotlight-overlay aria-hidden="true">
       <div class="spotlight-overlay__grid spotlight-overlay__grid--soft"></div>
       <div class="spotlight-overlay__grid spotlight-overlay__grid--core"></div>
@@ -344,7 +351,7 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
             {navLinks.map((link, i) => (
               <Fragment>
                 {i > 0 && <span class="nav-separator" aria-hidden="true">/</span>}
-                <a href={link.href} class="nav-link" data-nav-link={link.section ?? link.href}>{link.label}</a>
+                <a data-track="nav.link" href={link.href} class="nav-link" data-nav-link={link.section ?? link.href}>{link.label}</a>
               </Fragment>
             ))}
           </div>
@@ -401,7 +408,7 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
           is one too many. */}
       {!isDocsNav && <SearchButton class={brandHome ? 'topbar-action topbar-action--search' : undefined} />}
       <div class="theme-dropdown" data-theme-dropdown>
-        <button class:list={['header-action-btn', { 'topbar-action': brandHome }]} type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
+        <button data-track="theme.open" class:list={['header-action-btn', { 'topbar-action': brandHome }]} type="button" data-theme-toggle aria-label="Switch theme" aria-haspopup="true" aria-expanded="false">
           <span class="theme-icon-container">
             <span class="theme-icon" data-theme-icon="light" aria-hidden="true">
               <Sun className="h-4 w-4" />
@@ -418,22 +425,22 @@ const wordmarkFontHref = '/fonts/wenkai-wordmark.woff2';
           <span class="sr-only" data-theme-label>System</span>
         </button>
         <div class="theme-dropdown-menu" data-theme-menu role="menu" aria-label="Theme options">
-          <button class="theme-dropdown-item" data-theme-option="light" role="menuitem">
+          <button data-track="theme.pick" class="theme-dropdown-item" data-theme-option="light" role="menuitem">
             <Sun className="h-4 w-4" />
             <span>Light</span>
           </button>
-          <button class="theme-dropdown-item" data-theme-option="dark" role="menuitem">
+          <button data-track="theme.pick" class="theme-dropdown-item" data-theme-option="dark" role="menuitem">
             <Moon className="h-4 w-4" />
             <span>Dark</span>
           </button>
-          <button class="theme-dropdown-item" data-theme-option="system" role="menuitem">
+          <button data-track="theme.pick" class="theme-dropdown-item" data-theme-option="system" role="menuitem">
             <Monitor className="h-4 w-4" />
             <span>System</span>
           </button>
         </div>
       </div>
       {showMenu && (
-        <button
+        <button data-track="nav.menu"
           class:list={['header-action-btn', 'menu-trigger', { 'topbar-action': brandHome }]}
           type="button"
           data-menu-trigger

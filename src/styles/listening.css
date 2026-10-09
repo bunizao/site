@@ -1197,6 +1197,27 @@
     animation: none;
   }
 
+  /* A title too long for its line cannot scroll here, so it wraps: still
+     clipped and masked, the end of it could never be read. */
+  .listening-title.is-marquee {
+    width: auto;
+    white-space: normal;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .listening-title.is-marquee .listening-title-text,
+  .listening-title.is-marquee [data-listening-title-label],
+  .listening-title.is-marquee [data-listening-title-label]::before {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .listening-title.is-marquee .listening-title-duplicate {
+    display: none;
+  }
+
   /* Nothing moves here, so the cue has to be stated: hold the ring glyph up
      for the whole fetch instead of relying on the platter and the tonearm. */
   .listening-art.is-preview-loading .listening-art-icons {

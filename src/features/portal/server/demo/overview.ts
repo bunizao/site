@@ -1,3 +1,4 @@
+import { siteAnalyticsDemo } from './site-analytics';
 /* Demo answers for Home, Activity and Analytics, for `astro dev` with no
    site-api behind it. Dispatched from demo-api.ts, which owns the store.
 
@@ -578,7 +579,10 @@ export async function handleOverviewDemo(request: Request, segments: string[], s
   const params = new URL(request.url).searchParams;
   const [root, resource, ...rest] = segments;
 
+  if (root === 'v2' && resource === 'analytics' && rest[0] === 'listening' && method === 'GET') return json(DEMO_ANALYTICS.summary.listening);
   if (root === 'analytics') {
+    if (resource === 'site' && method === 'GET') return json(siteAnalyticsDemo(params));
+    if (resource === 'newsletter' && rest[0] === 'summary' && method === 'GET') return json(DEMO_ANALYTICS.summary.newsletter);
     if (method !== 'GET') return fail(405, 'method_not_allowed');
     if (resource === 'summary' && rest.length === 0) return json(analyticsSummary(params));
     if (resource === 'events' && rest.length === 0) {

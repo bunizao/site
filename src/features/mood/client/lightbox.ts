@@ -1,3 +1,4 @@
+import { analyticsClick, analyticsMetric } from '@/lib/analytics/events';
 /* Full size, on click. The gallery shows each image whole but at reading
    width, which is enough to recognise a screenshot and not enough to read one.
 
@@ -58,6 +59,10 @@ function createLightbox(): Lightbox {
     if (!slides.length) return;
     index = (next + slides.length) % slides.length;
     const slide = slides[index]!;
+    if (document.body.dataset.analyticsSurface === 'mood_post') {
+      analyticsMetric(1, 1, true);
+      analyticsClick('mood_post.image', { position: index, region: 'gallery' });
+    }
     image.src = slide.src;
     image.alt = slide.alt;
     counter.textContent = slides.length > 1 ? `${index + 1} / ${slides.length}` : '';

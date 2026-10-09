@@ -41,7 +41,7 @@ import '@/styles/docs-search.css';
         <!-- data-command-open reuses CommandPalette's own global click wiring
              (it scans for that attribute at page load) so the site-wide
              search opens without touching CommandPalette.astro. -->
-        <button type="button" class="docs-search-empty-action" data-docs-search-fallback data-command-open>
+        <button data-track="palette.open" type="button" class="docs-search-empty-action" data-docs-search-fallback data-command-open>
           Search the whole site instead
           <span aria-hidden="true">↗</span>
         </button>

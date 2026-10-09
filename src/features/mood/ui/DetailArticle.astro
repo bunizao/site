@@ -65,7 +65,7 @@ const knownCommentsCount = post?.commentsCount !== undefined && Number.isFinite(
     data-mood-preview-pending={previewPending ? 'true' : undefined}
   >
     <div class="mood-post-header">
-      <a href={backHref} class="back-link" data-back-button>
+      <a data-track="mood_post.back" href={backHref} class="back-link" data-back-button>
         <span class="back-link__arrow" aria-hidden="true">&#8592;</span>Moods
       </a>
       <div class="post-head">
@@ -90,7 +90,7 @@ const knownCommentsCount = post?.commentsCount !== undefined && Number.isFinite(
         {postTags.length > 0 && (
           <div class="mood-post-tags">
             {postTags.map((tag) => (
-              <a class="mood-post-tag" href={getMoodTagHref(tag)}>#{tag}</a>
+              <a data-track="mood_post.tag" class="mood-post-tag" href={getMoodTagHref(tag)}>#{tag}</a>
             ))}
           </div>
         )}

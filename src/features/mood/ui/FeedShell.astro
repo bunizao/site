@@ -263,7 +263,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     <div class="mood-tag-filter" data-mood-tag-filter>
       <span class="mood-tag-filter-label">Filtering by</span>
       <span class="mood-tag-filter-tag">#{activeTagFilter}</span>
-      <a class="mood-tag-filter-clear" href="/mood">All moods</a>
+      <a data-track="mood.tag_clear" class="mood-tag-filter-clear" href="/mood">All moods</a>
     </div>
   )}
 
@@ -298,7 +298,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
 
   <div class="mood-error is-hidden" data-mood-error>
     <p class="text-sm text-muted-foreground">Unable to load moods. Please try again later.</p>
-    <button class="mood-load-retry" type="button" data-mood-initial-retry>Retry</button>
+    <button data-track="mood.retry" class="mood-load-retry" type="button" data-mood-initial-retry>Retry</button>
   </div>
 
   <div
@@ -317,7 +317,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     {anchorId && (
       <div class="mood-load-controls mood-load-controls--newer">
         <p class="mood-load-status" data-mood-newer-status aria-live="polite"></p>
-        <button class="mood-load-retry" type="button" data-mood-newer-retry hidden>Retry</button>
+        <button data-track="mood.retry" class="mood-load-retry" type="button" data-mood-newer-retry hidden>Retry</button>
       </div>
     )}
     {/* Ship the SSR feed hidden: streamed HTML can paint the UTC grouping
@@ -378,6 +378,8 @@ function shouldHideQuoteAuthor(value?: string): boolean {
                   data-mood-id={post.id}
                   data-mood-group-ids={post.groupIds?.join(',') || undefined}
                   data-href={href}
+                  data-track={href ? 'mood.open' : undefined}
+                  data-track-manual={href ? '' : undefined}
                   role={href ? 'link' : undefined}
                   tabindex={href ? 0 : undefined}
                   style={`--item-index: ${index};`}
@@ -618,7 +620,7 @@ function shouldHideQuoteAuthor(value?: string): boolean {
     {hasCriticalInitialPosts && <script is:inline set:html={rekeyServerGroupsInline}></script>}
     <div class="mood-load-controls">
       <p class="mood-load-status" data-load-status aria-live="polite"></p>
-      <button class="mood-load-retry" type="button" data-mood-load-retry hidden>Retry</button>
+      <button data-track="mood.retry" class="mood-load-retry" type="button" data-mood-load-retry hidden>Retry</button>
     </div>
     <div class="mood-sentinel" data-mood-sentinel aria-hidden="true"></div>
   </div>

@@ -40,7 +40,7 @@ const ELSEWHERE = [
   <div class="docs-nav-body">
     {/* Opens the docs-scoped search dialog (DocsSearch.astro), not the
         site-wide command palette — this trigger only searches docs content. */}
-    <button class="docs-nav-search" type="button" data-docs-search-open aria-label="Search docs">
+    <button data-track="docs.search" class="docs-nav-search" type="button" data-docs-search-open aria-label="Search docs">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <span class="docs-nav-search-label">Search</span>
       <span class="docs-nav-search-keys" aria-hidden="true"><Kbd icon="command" /><Kbd>K</Kbd></span>
@@ -54,7 +54,7 @@ const ELSEWHERE = [
           data-docs-group={group.label}
           data-docs-group-current={group.entries.some((entry) => entry.id === current) ? '' : undefined}
         >
-          <summary class="docs-nav-group-label">
+          <summary data-track="docs.group" class="docs-nav-group-label">
             <span>{group.label}</span>
             <svg class="docs-nav-group-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>

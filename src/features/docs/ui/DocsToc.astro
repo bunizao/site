@@ -21,7 +21,7 @@ const { items } = Astro.props;
       <a
         class:list={['docs-toc-link', item.depth === 3 && 'docs-toc-link--sub']}
         href={`#${item.id}`}
-        data-docs-toc-link={item.id}
+        data-track="docs.toc" data-docs-toc-link={item.id}
       >{item.label}</a>
     ))}
   </nav>

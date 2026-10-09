@@ -30,7 +30,7 @@ const t = blog.copy[locale].share;
     <!-- The copied-state strings ride along as data attributes rather than
          being imported into the client script below, which stays free of
          any site-config import. -->
-    <button
+    <button data-track="post.share_copy"
       type="button"
       class="share-btn"
       data-share-copy
@@ -50,7 +50,7 @@ const t = blog.copy[locale].share;
       </span>
     </button>
 
-    <button type="button" class="share-btn" data-share-native data-tip={t.share} aria-label={t.share} hidden>
+    <button data-track="post.share_native" type="button" class="share-btn" data-share-native data-tip={t.share} aria-label={t.share} hidden>
       <svg class="share-btn__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"></path>
         <path d="M16 6l-4-4-4 4"></path>

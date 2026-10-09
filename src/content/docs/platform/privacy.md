@@ -34,20 +34,18 @@ the policy text is wrong and needs fixing.
 
 | Feature | What is collected | Where it goes | Third parties |
 | --- | --- | --- | --- |
+| Site analytics | Page/view/visitor/session ids; visible dwell, scroll, input counts and named clicks; referrer and allowlisted campaign values; browser, viewport, time zone and languages. The server adds IP-derived place, network evidence and user agent | WAE `site_views` and `site_clicks`; identity-free daily and period rollups in D1 `site-analytics`. GPC browsers and non-production hosts skip sends; `/dev/*` and `/lab/*` mount no beacon | Cloudflare |
 | Hosting | Standard request logs | Cloudflare Worker `site`, routed on `buxx.me` and `www.buxx.me` | Cloudflare |
 | Edge diagnostics | Colo, protocol, TLS, TCP RTT, approximate location, and network, read from `request.cf` | Sent back to the requesting visitor only, with `no-store`. Never stored | Cloudflare |
 | Home listening card | Nothing from the visitor | `site-api /api/listening`, fetched client-side instead of baked into the HTML | Last.fm (recent tracks), Apple (artwork, preview, links) |
-| Playback analytics | One cumulative record per playback: heard time, media position, duration, play/pause/seek/complete, plus the visitor and session ids shared with reading analytics | `site-api /api/v2/analytics/listening`, upserted as one row in `listening_analytics_events`. The server adds IP-derived location, referrer, language, browser, OS, and device | First-party |
+| Playback analytics | One cumulative record per playback: heard time, media position, duration, play/pause/seek/complete, plus the visitor id shared with site analytics, plus a separate playback session | `site-api /api/v2/analytics/listening`, upserted as one row in `listening_analytics_events`. The server adds IP-derived location, referrer, language, browser, OS, and device | First-party |
 | YouTube embeds | A session-scoped `yes`/`no` reachability verdict. No country data | Poster and avatar bytes come through `/static/youtube/<id>/…`, so the browser contacts nothing until play | YouTube, only after the reader presses play |
-| Mood pages | Nothing from the visitor | Public Telegram-derived content through `site-api` | Telegram |
+| Mood pages | Page dwell, scroll, named clicks and anonymous analytics identifiers; public channel content remains separate | Analytics through `/api/analytics/collect`; Telegram-derived content through `site-api` | Cloudflare, Telegram |
 | Mood subscription | Email address, channel and delivery preferences, delivery records | `NOTIFY_DB` in `site-api`, which also mints and verifies the tokens | Resend (delivery) |
 | Anti-abuse | A Turnstile token on subscribe, manage-link request, blog and mood comment create, reaction toggle, and owner message | Verified inside `site-api` before the handler runs | Cloudflare Turnstile |
 | Writing and contributions | Nothing from the visitor | Ghost at build time, `site-api /api/github/contributions` at runtime | Ghost, GitHub |
 
-No page mounts a third-party analytics script.
-[`Layout.astro`](https://github.com/bunizao/site/blob/main/src/layouts/Layout.astro)
-loads none. The playback and reading analytics above are first-party endpoints
-on the site's own API.
+The repository mounts no third-party analytics tag. Cloudflare Web Analytics and Google tags can also be injected at the network edge; inspecting the repository alone does not establish what a deployed response loads. First-party site and playback events go to the site's own API.
 
 ### Blog comments
 
@@ -87,6 +85,8 @@ identifies a writer has a fixed lifetime.
 
 | Data | Kept for |
 | --- | --- |
+| Raw site analytics | WAE fixed three-month retention; owner raw reports are limited to ninety days |
+| Site analytics rollups | Indefinitely; no IP, visitor id or session id |
 | Comment risk signals | 90 days after the row was written. A cron then nulls them in place across `blog_comments`, `blog_reactions` and `owner_messages` |
 | The address typed on a private message | 7 days, unless a signed-in reader sent it |
 | Quarantine on a writer who tripped a spam signal | 24 hours |
@@ -110,7 +110,7 @@ authentication category, challenge count and total.
 The short version of the policy can mislead on these points:
 
 - **Playback events belong to a visitor.** They carry a stable visitor id,
-  reuse the reading-analytics session, and get an IP-derived location. There
+  reuse the site visitor id and keep a separate playback session, and get an IP-derived location. There
   is one row per playback instead of one per event, but each row is still a
   per-visitor record.
 - **Mood content reads the archive first.** Production sets

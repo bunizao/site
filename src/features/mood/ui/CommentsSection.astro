@@ -112,7 +112,7 @@ const prefetchUrls = discussionLinked
       button that loads the rest of this one -- and both on the bubbles' own
       text axis, so the thread keeps a single left edge to its last line. */}
   <div class="mood-comments-foot">
-    <button type="button" class="mood-comments-load-more" data-load-more hidden>
+    <button data-track="mood_post.comment_more" type="button" class="mood-comments-load-more" data-load-more hidden>
       {t.loadMore}
     </button>
     {telegramCommentUrl && (

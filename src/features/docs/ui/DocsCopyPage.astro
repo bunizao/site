@@ -17,7 +17,7 @@ const { markdownPath } = Astro.props as Props;
 
 <div class="docs-copy-page" data-docs-page-copy>
   <button
-    class="docs-copy-page-action"
+    data-track="docs.copy_page" class="docs-copy-page-action"
     type="button"
     data-page-copy-trigger
     data-markdown-url={markdownPath}
@@ -45,7 +45,7 @@ const { markdownPath } = Astro.props as Props;
 
   <div class="docs-copy-page-menu" data-page-copy-menu hidden>
     <button
-      class="docs-copy-page-item"
+      data-track="docs.copy_page" class="docs-copy-page-item"
       type="button"
       data-page-copy-trigger
       data-markdown-url={markdownPath}
@@ -60,7 +60,7 @@ const { markdownPath } = Astro.props as Props;
       </span>
     </button>
 
-    <a class="docs-copy-page-item" href={markdownPath} target="_blank" rel="noopener">
+    <a data-track="docs.copy_page" class="docs-copy-page-item" href={markdownPath} target="_blank" rel="noopener">
       <FileText className="docs-copy-page-item-mark" aria-hidden="true" />
       <span class="docs-copy-page-item-text">
         <span class="docs-copy-page-item-title">

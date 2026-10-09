@@ -47,7 +47,7 @@ function headHtml(lang: string | null | undefined): string {
   return (
     '<div class="docs-code-head">' +
     `<span class="docs-code-lang">${logo}${label}</span>` +
-    '<button class="copy-btn" type="button" data-docs-copy aria-label="Copy code">' +
+    '<button data-track="docs.copy_code" class="copy-btn" type="button" data-docs-copy aria-label="Copy code">' +
     '<span class="copy-btn-icons" aria-hidden="true">' +
     '<svg class="copy-btn-icon copy-btn-icon--copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
     '<svg class="copy-btn-icon copy-btn-icon--check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +

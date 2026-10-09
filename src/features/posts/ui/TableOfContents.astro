@@ -15,7 +15,7 @@ import '@/styles/scroll-dock.css';
       <div class="toc-progress-timeline" aria-hidden="true">
         <div class="toc-progress-fill"></div>
       </div>
-      <ul class="toc-list"></ul>
+      <ul data-track-list class="toc-list"></ul>
     </div>
   </div>
 </nav>
@@ -131,6 +131,7 @@ import '@/styles/scroll-dock.css';
         item.className = `toc-item depth-${depth}`;
         const link = document.createElement('a');
         link.className = 'toc-link';
+        link.dataset.track = 'post.toc';
         link.href = `#${heading.id}`;
         const label = document.createElement('span');
         label.className = 'toc-text';

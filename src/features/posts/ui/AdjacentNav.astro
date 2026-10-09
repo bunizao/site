@@ -32,7 +32,7 @@ const nextCover = cover(next);
 {(prev || next) && (
   <nav class="blog-adjacent" aria-label="More posts">
     {prev ? (
-      <a class="blog-adjacent__item blog-adjacent__item--prev" href={postPath(prev.slug)}>
+      <a data-track="post.adjacent" class="blog-adjacent__item blog-adjacent__item--prev" href={postPath(prev.slug)}>
         {prevCover && (
           <span class="blog-adjacent__cover" aria-hidden="true">
             <img src={prevCover} alt="" loading="lazy" decoding="async" />
@@ -42,10 +42,10 @@ const nextCover = cover(next);
         <span class="blog-adjacent__title">{prev.title}</span>
       </a>
     ) : (
-      <a class="blog-adjacent__index" href="/blog">← All posts</a>
+      <a data-track="post.adjacent" class="blog-adjacent__index" href="/blog">← All posts</a>
     )}
     {next ? (
-      <a class="blog-adjacent__item blog-adjacent__item--next" href={postPath(next.slug)}>
+      <a data-track="post.adjacent" class="blog-adjacent__item blog-adjacent__item--next" href={postPath(next.slug)}>
         {nextCover && (
           <span class="blog-adjacent__cover" aria-hidden="true">
             <img src={nextCover} alt="" loading="lazy" decoding="async" />
@@ -55,7 +55,7 @@ const nextCover = cover(next);
         <span class="blog-adjacent__title">{next.title}</span>
       </a>
     ) : (
-      <a class="blog-adjacent__index blog-adjacent__index--next" href="/blog">All posts →</a>
+      <a data-track="post.adjacent" class="blog-adjacent__index blog-adjacent__index--next" href="/blog">All posts →</a>
     )}
   </nav>
 )}

@@ -25,7 +25,11 @@ import { serializeScriptJson } from '@/lib/serialize-script-json';
 import { profileAlternateNames, profileName } from '@/lib/seo';
 import ViewTransitionReveal from './client/ViewTransitionReveal.astro';
 
+import SiteAnalytics from '@/components/SiteAnalytics.astro';
+import { inferAnalyticsPage, analyticsEnabled, type AnalyticsPage } from '@/lib/analytics/page';
+
 interface Props {
+  analytics?: AnalyticsPage;
   title: string;
   description?: string;
   /** Path under the site origin, e.g. "/blog" or "/blog/my-post". */
@@ -168,6 +172,8 @@ const paletteCss = [
   `.blog-zone{--blog-accent:${dai.light};--blog-dai:${dai.light};--blog-dian:${dian.light};--blog-ji:${ji.light};}`,
   `.dark .blog-zone{--blog-accent:${dai.dark};--blog-dai:${dai.dark};--blog-dian:${dian.dark};--blog-ji:${ji.dark};}`,
 ].join('');
+const analyticsPage = Astro.props.analytics ?? inferAnalyticsPage(Astro.url.pathname);
+const trackAnalytics = analyticsEnabled(Astro.url.pathname);
 ---
 
 <!doctype html>
@@ -368,10 +374,14 @@ const paletteCss = [
   </head>
 
   <body
+    data-analytics-surface={analyticsPage.surface}
+    data-analytics-entity={analyticsPage.entity}
+    data-analytics-locale={analyticsPage.locale ?? locale}
     class="blog-zone reading"
     data-pagefind-ignore={excludesIndexing || excludeFromSearch ? 'all' : undefined}
   >
     <PerformanceDebugPanel />
+    {trackAnalytics && <SiteAnalytics />}
     <!-- The root scrolls, as on every other page: Safari collapses its toolbar
          on the way down and the page shows through it. -->
     <slot name="readingbar" />

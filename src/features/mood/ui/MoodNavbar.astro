@@ -26,7 +26,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
 
 <Topbar class="mood-navbar" progressiveBlur data-mood-navbar>
   <div class="mood-navbar__bar">
-    <button type="button" class="mood-nav-identity" data-mood-nav-top aria-label="Back to top">
+    <button data-track="mood.nav_top" type="button" class="mood-nav-identity" data-mood-nav-top aria-label="Back to top">
       <!-- Empty placeholder the flyer avatar lands on; it only reserves layout
            so the title sits where it will after the avatar docks. -->
       <span class="mood-nav-avatar-slot" data-mood-nav-avatar-slot aria-hidden="true"></span>
@@ -44,7 +44,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
     </button>
 
     <div class="mood-navbar__controls">
-      <button
+      <button data-track="palette.open"
         type="button"
         class="topbar-action topbar-action--search"
         data-command-open
@@ -125,7 +125,7 @@ const avatar = initialChannel?.avatar?.trim() ?? '';
   >
     <p class="mood-update-text" data-mood-update-text>New moods are in!</p>
     <div class="mood-update-actions" data-mood-update-actions>
-      <button class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
+      <button data-track="mood.update_refresh" class="mood-update-action" type="button" data-mood-update-refresh aria-label="Refresh">
         <svg
           class="mood-update-action-icon"
           width="14"

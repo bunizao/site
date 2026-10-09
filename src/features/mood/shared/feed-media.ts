@@ -279,7 +279,7 @@ function renderPoll(media: MediaItem): string {
   const description = media.description?.trim() ?? '';
 
   return [
-    '<div class="mood-unsupported-media-card mood-item-quote mood-comment-quote">',
+    '<div data-track="mood.quote" class="mood-unsupported-media-card mood-item-quote mood-comment-quote">',
     '<div class="mood-item-quote-meta"><span class="mood-item-quote-author">Poll</span></div>',
     `<p class="mood-item-quote-text">${escapeHtml(description || title)}</p>`,
     '</div>',
