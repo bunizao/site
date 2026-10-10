@@ -125,7 +125,10 @@ describe('components showcase registry', () => {
       'lib/musickit/player.ts',
       'types/musickit.d.ts',
       'assets/apple-logo.svg',
+      'lib/listening-week.ts',
     ]);
+    expect(item.files[3]?.content).toContain("from '@/lib/listening-week'");
+    expect(item.files[8]?.content).toContain("from '@/lib/listening-types'");
   });
 
   test('publishes the mobile reading bar as an installable component', async () => {

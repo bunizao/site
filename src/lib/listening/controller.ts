@@ -9,6 +9,7 @@ import {
   inferListeningSurface,
 } from '@/lib/listening/analytics';
 import type { ListeningAccent } from '@/features/home/types';
+import { parseListeningWeek } from '@/lib/listening/week';
 
 export type ListeningTrackPayload = {
   id?: string;
@@ -36,6 +37,12 @@ const LISTENING_REFRESH_MS = 45_000;
  * elsewhere too.
  */
 export const LISTENING_TRACK_EVENT = 'listening:track';
+
+/**
+ * Fired the same way with the owner's Last.fm week (`ListeningWeek`) as
+ * `detail`, whenever a live read carries one.
+ */
+export const LISTENING_WEEK_EVENT = 'listening:week';
 const playedAtDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
@@ -463,7 +470,9 @@ export const initListeningCards = (root: ParentNode = document): void => {
       });
       if (!response.ok) return null;
 
-      const payload = await response.json() as { track?: ListeningTrackPayload | null };
+      const payload = await response.json() as { track?: ListeningTrackPayload | null; week?: unknown };
+      const week = parseListeningWeek(payload.week);
+      if (week) root.dispatchEvent(new CustomEvent(LISTENING_WEEK_EVENT, { detail: week, bubbles: true }));
       return payload.track ?? null;
     };
 
