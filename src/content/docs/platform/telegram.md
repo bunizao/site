@@ -26,6 +26,21 @@ The Telegram pipeline affects:
 
 ## Current flow
 
+### Channel follower notices
+
+The ops bot can notify the owner when a human joins the channel. Each private
+notice contains the channel, the follower's name, optional username, numeric
+Telegram user ID and join time. Departures, permission changes and discussion
+group membership changes do not generate follower notices. A user who leaves
+and rejoins generates a new join notice.
+
+This requires the ops bot to be a channel administrator and its webhook to
+subscribe explicitly to `chat_member` updates. It observes new joins after
+activation; it does not reconstruct a historical subscriber list. Telegram's
+Bot API provides user IDs but does not expose a user's data center (DC).
+
+### Channel posts
+
 From the webhook, a new channel post takes two paths: image ingest into R2,
 and a queued notify dispatch.
 
